@@ -1,0 +1,28 @@
+go 1.25.6
+
+use (
+	./pkg/auth
+	./pkg/clients
+	./pkg/config
+	./pkg/errors
+	./pkg/health
+	./pkg/kafka
+	./pkg/logger
+	./pkg/middleware
+	./pkg/money
+	./pkg/observability
+	./pkg/otel
+	./pkg/pagination
+	./pkg/platformrpc
+	./pkg/redis
+	./pkg/servicehttp
+	./pkg/validation
+	./services/api-gateway
+	./services/identity-service
+	./services/logistics-service
+	./services/mcp-server
+	./services/mobility-service
+	./services/operations-service
+	./services/payment-service
+	./tests
+)

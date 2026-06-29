@@ -1,0 +1,58 @@
+groups:
+  - name: platform_slos
+    rules:
+      - alert: OrderCreationLatencyHigh
+        expr: histogram_quantile(0.99, http_request_duration_seconds{path="/api/v1/orders",method="POST"}) > 0.3
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Order creation P99 > 300ms"
+
+      - alert: PaymentProviderErrorRate
+        expr: rate(payment_provider_calls_total{status="failed"}[5m]) / rate(payment_provider_calls_total[5m]) > 0.01
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Payment provider error rate > 1%"
+
+      - alert: KafkaConsumerLagCritical
+        expr: kafka_consumer_lag > 50000
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Kafka consumer lag critical on {{ $labels.topic }}"
+
+      - alert: DriversOnlineLow
+        expr: drivers_online_total < 5
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Fewer than 5 drivers online"
+
+      - alert: OutboxPublishFailures
+        expr: rate(service_outbox_events_total{status=~"publish_failed|encode_failed|envelope_failed|marshal_failed"}[5m]) > 0
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Service outbox publishing failures detected"
+
+      - alert: RedisClientErrorRateHigh
+        expr: rate(redis_client_requests_total{status="failed"}[5m]) / clamp_min(rate(redis_client_requests_total[5m]), 0.001) > 0.05
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Redis client error rate above 5%"
+
+      - alert: OAuthExchangeFailures
+        expr: rate(oauth_exchanges_total{status="failed"}[10m]) > 0.05
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "OAuth exchange failures are elevated"

@@ -1,0 +1,55 @@
+{
+  "title": "Identity Service",
+  "schemaVersion": 39,
+  "tags": ["logistics-platform", "identity-service"],
+  "panels": [
+    {
+      "title": "Registrations and Password Logins",
+      "type": "timeseries",
+      "targets": [
+        {
+          "expr": "sum(rate(identity_registrations_total[5m])) by (role)"
+        },
+        {
+          "expr": "sum(rate(identity_logins_total[5m])) by (method)"
+        }
+      ]
+    },
+    {
+      "title": "Token Refreshes",
+      "type": "timeseries",
+      "targets": [
+        {
+          "expr": "sum(rate(identity_token_refresh_total[5m]))"
+        }
+      ]
+    },
+    {
+      "title": "OAuth Sessions Started",
+      "type": "timeseries",
+      "targets": [
+        {
+          "expr": "sum(rate(oauth_sessions_started_total[5m])) by (provider)"
+        }
+      ]
+    },
+    {
+      "title": "OAuth Exchanges",
+      "type": "timeseries",
+      "targets": [
+        {
+          "expr": "sum(rate(oauth_exchanges_total[5m])) by (provider, status)"
+        }
+      ]
+    },
+    {
+      "title": "Redis Fallback Usage",
+      "type": "timeseries",
+      "targets": [
+        {
+          "expr": "sum(rate(redis_fallback_requests_total[5m])) by (backend, command, status)"
+        }
+      ]
+    }
+  ]
+}

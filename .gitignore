@@ -1,0 +1,6 @@
+.DS_Store
+.cache/
+bin/
+.idea/
+.env.example
+.env/

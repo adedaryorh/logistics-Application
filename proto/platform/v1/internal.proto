@@ -1,0 +1,71 @@
+syntax = "proto3";
+
+package platform.v1;
+
+option go_package = "github.com/adedaryorh/logistics-platform/pkg/platformrpc";
+
+service HealthService {
+  rpc Check(HealthCheckRequest) returns (HealthCheckResponse);
+}
+
+service MobilityService {
+  rpc NearbyDrivers(NearbyDriversRequest) returns (NearbyDriversResponse);
+  rpc DriverLocation(DriverLocationRequest) returns (DriverLocationResponse);
+}
+
+service PaymentService {
+  rpc PaymentStatus(PaymentStatusRequest) returns (PaymentStatusResponse);
+}
+
+message HealthCheckRequest {}
+
+message HealthCheckResponse {
+  string service = 1;
+  string status = 2;
+  string version = 3;
+  string timestamp = 4;
+}
+
+message NearbyDriversRequest {
+  double lat = 1;
+  double lng = 2;
+  int32 k_ring = 3;
+  string vehicle_type = 4;
+}
+
+message DriverSnapshot {
+  string driver_id = 1;
+  double lat = 2;
+  double lng = 3;
+  string h3_cell = 4;
+  double rating = 5;
+  int32 total_trips = 6;
+  string vehicle_type = 7;
+  string updated_at = 8;
+}
+
+message NearbyDriversResponse {
+  repeated DriverSnapshot drivers = 1;
+}
+
+message DriverLocationRequest {
+  string driver_id = 1;
+}
+
+message DriverLocationResponse {
+  DriverSnapshot driver = 1;
+}
+
+message PaymentStatusRequest {
+  string transaction_id = 1;
+}
+
+message PaymentStatusResponse {
+  string transaction_id = 1;
+  string order_id = 2;
+  string customer_id = 3;
+  int64 amount_minor = 4;
+  string currency = 5;
+  string provider = 6;
+  string status = 7;
+}

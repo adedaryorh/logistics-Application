@@ -1,0 +1,64 @@
+{
+  "title": "Payment Service",
+  "schemaVersion": 39,
+  "tags": ["logistics-platform", "payment-service"],
+  "panels": [
+    {
+      "title": "Payment Initializations",
+      "type": "timeseries",
+      "targets": [
+        {
+          "expr": "sum(rate(payments_initialized_total[5m])) by (provider, status)"
+        }
+      ]
+    },
+    {
+      "title": "Completed vs Failed Payments",
+      "type": "timeseries",
+      "targets": [
+        {
+          "expr": "sum(rate(payments_completed_total[5m])) by (provider)"
+        },
+        {
+          "expr": "sum(rate(payments_failed_total[5m])) by (provider)"
+        }
+      ]
+    },
+    {
+      "title": "Refunds",
+      "type": "timeseries",
+      "targets": [
+        {
+          "expr": "sum(rate(payments_refunded_total[5m])) by (provider, status)"
+        }
+      ]
+    },
+    {
+      "title": "Payouts",
+      "type": "timeseries",
+      "targets": [
+        {
+          "expr": "sum(rate(payouts_total[5m])) by (provider, status)"
+        }
+      ]
+    },
+    {
+      "title": "Reconciliation Checks",
+      "type": "timeseries",
+      "targets": [
+        {
+          "expr": "sum(rate(payment_reconciliation_checks_total[5m])) by (provider, status)"
+        }
+      ]
+    },
+    {
+      "title": "Payment Outbox",
+      "type": "timeseries",
+      "targets": [
+        {
+          "expr": "sum(rate(service_outbox_events_total{service=\"payment-service\"}[5m])) by (status)"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,23 @@
+syntax = "proto3";
+
+package payment.v1;
+
+option go_package = "github.com/adedaryorh/logistics-platform/pkg/clients/paymentgrpc";
+
+service PaymentService {
+  rpc PaymentStatus(PaymentStatusRequest) returns (PaymentStatusResponse);
+}
+
+message PaymentStatusRequest {
+  string transaction_id = 1;
+}
+
+message PaymentStatusResponse {
+  string transaction_id = 1;
+  string order_id = 2;
+  string customer_id = 3;
+  int64 amount_minor = 4;
+  string currency = 5;
+  string provider = 6;
+  string status = 7;
+}

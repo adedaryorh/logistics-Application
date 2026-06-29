@@ -1,0 +1,61 @@
+{
+  "title": "Order Lifecycle",
+  "schemaVersion": 39,
+  "tags": ["logistics-platform", "logistics-service"],
+  "panels": [
+    {
+      "title": "Orders Created Per Minute",
+      "type": "timeseries",
+      "targets": [
+        {
+          "expr": "sum(rate(orders_created_total[5m])) by (type)"
+        }
+      ]
+    },
+    {
+      "title": "Orders Assigned",
+      "type": "timeseries",
+      "targets": [
+        {
+          "expr": "sum(rate(orders_assigned_total[5m])) by (type)"
+        }
+      ]
+    },
+    {
+      "title": "Order Cancellations",
+      "type": "timeseries",
+      "targets": [
+        {
+          "expr": "sum(rate(orders_cancelled_total[5m])) by (reason)"
+        }
+      ]
+    },
+    {
+      "title": "Driver Availability Changes",
+      "type": "timeseries",
+      "targets": [
+        {
+          "expr": "sum(rate(driver_availability_changes_total[5m])) by (online, type)"
+        }
+      ]
+    },
+    {
+      "title": "Drivers Online",
+      "type": "stat",
+      "targets": [
+        {
+          "expr": "sum(drivers_online_total) by (type)"
+        }
+      ]
+    },
+    {
+      "title": "Outbox Health",
+      "type": "timeseries",
+      "targets": [
+        {
+          "expr": "sum(rate(service_outbox_events_total{service=\"logistics-service\"}[5m])) by (status)"
+        }
+      ]
+    }
+  ]
+}

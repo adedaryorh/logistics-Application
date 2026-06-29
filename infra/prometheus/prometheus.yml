@@ -1,0 +1,42 @@
+global:
+  scrape_interval: 15s
+
+scrape_configs:
+  - job_name: "prometheus"
+    static_configs:
+      - targets: ["prometheus:9090"]
+
+  - job_name: "api-gateway"
+    metrics_path: /healthz
+    static_configs:
+      - targets: ["api-gateway:8080"]
+
+  - job_name: "identity-service"
+    metrics_path: /healthz
+    static_configs:
+      - targets: ["identity-service:8081"]
+
+  - job_name: "logistics-service"
+    metrics_path: /healthz
+    static_configs:
+      - targets: ["logistics-service:8082"]
+
+  - job_name: "mobility-service"
+    metrics_path: /healthz
+    static_configs:
+      - targets: ["mobility-service:8083"]
+
+  - job_name: "payment-service"
+    metrics_path: /healthz
+    static_configs:
+      - targets: ["payment-service:8084"]
+
+  - job_name: "operations-service"
+    metrics_path: /healthz
+    static_configs:
+      - targets: ["operations-service:8085"]
+
+  - job_name: "mcp-server"
+    metrics_path: /healthz
+    static_configs:
+      - targets: ["mcp-server:8090"]
