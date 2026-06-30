@@ -1,0 +1,30 @@
+{
+  "extends": "@react-native/typescript-config",
+  "compilerOptions": {
+    "types": ["jest", "node"],
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["src/*"]
+    }
+  },
+  "include": ["**/*.ts", "**/*.tsx", "**/*.d.ts"],
+  "exclude": [
+    "**/node_modules",
+    "**/Pods",
+    "src/features/customer/**",
+    "src/features/driver/**",
+    "src/features/merchant/**",
+    "src/features/payment/**",
+    "src/services/location/**",
+    "src/services/websocket/**",
+    "src/app/ShowcaseScreen.tsx",
+    "src/design-system/components/Avatar.tsx",
+    "src/design-system/components/Badge.tsx",
+    "src/design-system/components/BottomSheet.tsx",
+    "src/design-system/components/ETABadge.tsx",
+    "src/design-system/components/LoadingScreen.tsx",
+    "src/design-system/components/MapView.tsx",
+    "src/design-system/components/PriceBreakdown.tsx",
+    "src/design-system/components/Toast.tsx"
+  ]
+}

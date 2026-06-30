@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(grep -E \"\\\\.\\(tsx\\)$\")",
+      "Bash(mkdir -p \"src/app/\\(auth\\)\" \"src/app/\\(customer\\)\" \"src/app/\\(driver\\)\" \"src/app/\\(merchant\\)\")"
+    ],
+    "additionalDirectories": [
+      "/Users/adedaryorh/Documents/gofleet-UI/src/app"
+    ]
+  }
+}
