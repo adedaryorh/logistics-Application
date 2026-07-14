@@ -1,10 +1,26 @@
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Modal, Pressable, SafeAreaView, StyleSheet, Text, TextInput, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Modal,
+  Pressable,
+  SafeAreaView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import MapView, { Marker } from 'react-native-maps';
 import { api } from '../api';
 import { demoTracking } from '../data/demo';
-import { IconButton, Progress, StateCard } from '../components/AppUI';
+import {
+  IconButton,
+  Notice,
+  PrimaryButton,
+  Progress,
+  StateCard,
+  StatusBadge,
+} from '../components/AppUI';
 import { Order, Tracking } from '../types';
 import { colors, radius, shadow } from '../theme';
 
@@ -58,7 +74,7 @@ export function TrackingModal({
     <Modal visible={!!order} animationType="slide" onRequestClose={onClose}>
       <SafeAreaView style={s.page}>
         <View style={s.header}>
-          <IconButton name="arrow-back" onPress={onClose} />
+          <IconButton name="arrow-back" label="Close job details" onPress={onClose} />
           <Text style={s.headerTitle}>{order?.id}</Text>
           <IconButton name="ellipsis-horizontal" />
         </View>
@@ -101,10 +117,13 @@ export function TrackingModal({
             </View>
             <View style={s.sheet}>
               <View style={s.handle} />
-              <Text style={s.eyebrow}>ARRIVING SOON</Text>
+              <Text style={s.eyebrow}>
+                {providerMode ? 'ACTIVE DELIVERY JOB' : 'DELIVERY PROGRESS'}
+              </Text>
               <Text style={s.title}>
                 {(data?.status ?? order?.status ?? 'dispatching').replaceAll('_', ' ')}
               </Text>
+              {currentStatus ? <StatusBadge status={currentStatus} /> : null}
               <Progress />
               <View style={s.rider}>
                 <View style={s.avatar}>
@@ -122,20 +141,111 @@ export function TrackingModal({
               {order?.agricultural_shipment ? (
                 <View style={s.jobCard}>
                   <Text style={s.jobTitle}>Agricultural load</Text>
-                  <Text style={s.jobLine}>{order.agricultural_shipment.produce_type} • {order.agricultural_shipment.quantity} {order.agricultural_shipment.quantity_unit} • {order.agricultural_shipment.packaging}</Text>
-                  <Text style={s.jobLine}>{order.agricultural_shipment.requires_refrigeration ? `Cold chain ${order.agricultural_shipment.cold_chain_min_c}–${order.agricultural_shipment.cold_chain_max_c}°C` : 'No refrigeration required'}</Text>
-                  {order.agricultural_shipment.handling_notes ? <Text style={s.jobNote}>Handle: {order.agricultural_shipment.handling_notes}</Text> : null}
-                  {order.agricultural_shipment.loading_notes ? <Text style={s.jobNote}>Loading: {order.agricultural_shipment.loading_notes}</Text> : null}
+                  <Text style={s.jobLine}>
+                    {order.agricultural_shipment.produce_type} •{' '}
+                    {order.agricultural_shipment.quantity}{' '}
+                    {order.agricultural_shipment.quantity_unit} •{' '}
+                    {order.agricultural_shipment.packaging}
+                  </Text>
+                  <Text style={s.jobLine}>
+                    {order.agricultural_shipment.requires_refrigeration
+                      ? `Cold chain ${order.agricultural_shipment.cold_chain_min_c}–${order.agricultural_shipment.cold_chain_max_c}°C`
+                      : 'No refrigeration required'}
+                  </Text>
+                  <Text style={s.jobLine}>
+                    Pickup{' '}
+                    {new Date(
+                      order.agricultural_shipment.pickup_window.start_at,
+                    ).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    –
+                    {new Date(order.agricultural_shipment.pickup_window.end_at).toLocaleTimeString(
+                      [],
+                      { hour: '2-digit', minute: '2-digit' },
+                    )}
+                  </Text>
+                  {order.agricultural_shipment.handling_notes ? (
+                    <Text style={s.jobNote}>
+                      Handle: {order.agricultural_shipment.handling_notes}
+                    </Text>
+                  ) : null}
+                  {order.agricultural_shipment.loading_notes ? (
+                    <Text style={s.jobNote}>
+                      Loading: {order.agricultural_shipment.loading_notes}
+                    </Text>
+                  ) : null}
                 </View>
               ) : null}
-              {providerMode && order?.agricultural_shipment && (currentStatus === 'assigned' || currentStatus === 'picked_up') ? (
+              {providerMode &&
+              order?.agricultural_shipment &&
+              (currentStatus === 'assigned' || currentStatus === 'picked_up') ? (
                 <View style={s.proofCard}>
-                  <Text style={s.jobTitle}>{currentStatus === 'assigned' ? 'Record pickup proof' : 'Record delivery proof'}</Text>
-                  <TextInput value={evidenceURL} onChangeText={setEvidenceURL} placeholder="Uploaded evidence URL" autoCapitalize="none" style={s.input} />
-                  {currentStatus === 'picked_up' ? <TextInput value={recipientName} onChangeText={setRecipientName} placeholder="Recipient name" style={s.input} /> : null}
-                  <Pressable disabled={savingProof || !evidenceURL || (currentStatus === 'picked_up' && !recipientName)} style={s.proofButton} onPress={async()=>{if(!order)return;setSavingProof(true);setError(undefined);try{const updated=await api.recordProof(order.id,currentStatus==='assigned'?'pickup':'delivery',{evidence_url:evidenceURL,recipient_name:recipientName,coordinate:currentStatus==='assigned'?order.pickup:order.dropoff});setData(current=>({...current,status:updated.status}));setEvidenceURL('');setRecipientName('');}catch(e){setError(e instanceof Error?e.message:'Could not save proof');}finally{setSavingProof(false)}}}>
-                    <Text style={s.proofButtonText}>{savingProof ? 'Saving…' : currentStatus === 'assigned' ? 'Confirm pickup' : 'Confirm delivery'}</Text>
-                  </Pressable>
+                  <Text style={s.jobTitle}>
+                    {currentStatus === 'assigned' ? 'Record pickup proof' : 'Record delivery proof'}
+                  </Text>
+                  <View style={s.checklist}>
+                    <Check text="Load matches job quantity and packaging" />
+                    <Check text="Photo clearly shows load and location" />
+                    <Check text="Handling and cold-chain requirements checked" />
+                  </View>
+                  {error ? <Notice tone="danger" title="Proof not saved" copy={error} /> : null}
+                  <TextInput
+                    accessibilityLabel="Evidence upload URL"
+                    accessibilityHint="Paste the durable URL returned after uploading the proof photo"
+                    value={evidenceURL}
+                    onChangeText={setEvidenceURL}
+                    placeholder="Evidence upload URL"
+                    autoCapitalize="none"
+                    style={s.input}
+                  />
+                  {currentStatus === 'picked_up' ? (
+                    <TextInput
+                      accessibilityLabel="Recipient name"
+                      value={recipientName}
+                      onChangeText={setRecipientName}
+                      placeholder="Recipient name"
+                      style={s.input}
+                    />
+                  ) : null}
+                  <PrimaryButton
+                    disabled={
+                      savingProof ||
+                      !evidenceURL ||
+                      (currentStatus === 'picked_up' && !recipientName)
+                    }
+                    label={
+                      savingProof
+                        ? 'Saving proof…'
+                        : currentStatus === 'assigned'
+                          ? 'Confirm pickup'
+                          : 'Confirm delivery'
+                    }
+                    icon={
+                      currentStatus === 'assigned' ? 'camera-outline' : 'checkmark-circle-outline'
+                    }
+                    onPress={async () => {
+                      if (!order) return;
+                      setSavingProof(true);
+                      setError(undefined);
+                      try {
+                        const updated = await api.recordProof(
+                          order.id,
+                          currentStatus === 'assigned' ? 'pickup' : 'delivery',
+                          {
+                            evidence_url: evidenceURL,
+                            recipient_name: recipientName,
+                            coordinate: currentStatus === 'assigned' ? order.pickup : order.dropoff,
+                          },
+                        );
+                        setData((current) => ({ ...current, status: updated.status }));
+                        setEvidenceURL('');
+                        setRecipientName('');
+                      } catch (e) {
+                        setError(e instanceof Error ? e.message : 'Could not save proof');
+                      } finally {
+                        setSavingProof(false);
+                      }
+                    }}
+                  />
                 </View>
               ) : null}
             </View>
@@ -143,6 +253,14 @@ export function TrackingModal({
         )}
       </SafeAreaView>
     </Modal>
+  );
+}
+function Check({ text }: { text: string }) {
+  return (
+    <View style={s.check}>
+      <Ionicons name="checkmark-circle" size={20} color={colors.greenDark} />
+      <Text style={s.checkText}>{text}</Text>
+    </View>
   );
 }
 const s = StyleSheet.create({
@@ -213,11 +331,25 @@ const s = StyleSheet.create({
   riderMeta: { fontSize: 10, color: colors.muted, marginTop: 4 },
   dropoff: { fontSize: 12, color: colors.muted, padding: 15 },
   jobCard: { backgroundColor: '#EEF6EC', borderRadius: radius.md, padding: 14, gap: 5 },
-  proofCard: { backgroundColor: 'white', borderRadius: radius.md, padding: 14, marginTop: 10, gap: 9 },
+  proofCard: {
+    backgroundColor: 'white',
+    borderRadius: radius.md,
+    padding: 14,
+    marginTop: 10,
+    gap: 9,
+  },
   jobTitle: { fontSize: 13, fontWeight: '900', color: colors.ink },
   jobLine: { fontSize: 12, color: colors.ink },
   jobNote: { fontSize: 11, color: colors.muted },
-  input: { borderWidth: 1, borderColor: colors.line, borderRadius: 12, paddingHorizontal: 12, height: 44, color: colors.ink },
-  proofButton: { backgroundColor: colors.greenDark, borderRadius: 12, minHeight: 44, alignItems: 'center', justifyContent: 'center' },
-  proofButtonText: { color: 'white', fontWeight: '900' },
+  input: {
+    borderWidth: 1,
+    borderColor: colors.line,
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    height: 44,
+    color: colors.ink,
+  },
+  checklist: { gap: 7, paddingVertical: 4 },
+  check: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  checkText: { flex: 1, fontSize: 13, lineHeight: 18, color: colors.ink },
 });

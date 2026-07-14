@@ -1,4 +1,4 @@
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { IconButton, page } from '../components/AppUI';
 import { User } from '../types';
@@ -15,8 +15,9 @@ export function ProfileScreen({
 }) {
   const menu = [
     ['person-outline', 'Personal details'],
-    ['location-outline', 'Saved addresses'],
-    ['card-outline', 'Payment methods'],
+    ['document-text-outline', 'Driver documents'],
+    ['car-outline', 'Vehicle and capacity'],
+    ['notifications-outline', 'Job notifications'],
     ['shield-checkmark-outline', 'Safety & privacy'],
     ['headset-outline', 'Help centre'],
   ] as const;
@@ -33,12 +34,20 @@ export function ProfileScreen({
         <View style={{ flex: 1 }}>
           <Text style={s.name}>{user.email.split('@')[0]}</Text>
           <Text style={s.email}>{user.email}</Text>
-          <Text style={s.verified}>● {demoMode ? 'Demo account' : 'Verified account'}</Text>
+          <Text style={s.verified}>
+            {demoMode ? 'Demo provider' : `Verified ${user.role ?? 'provider'}`}
+          </Text>
         </View>
       </View>
       <View style={s.list}>
         {menu.map(([icon, label]) => (
-          <Pressable key={label} style={s.row}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={label}
+            accessibilityHint="Opens account settings"
+            key={label}
+            style={({ pressed }) => [s.row, pressed && { opacity: 0.72 }]}
+          >
             <View style={s.icon}>
               <Ionicons name={icon} size={20} color={colors.ink} />
             </View>
@@ -47,7 +56,21 @@ export function ProfileScreen({
           </Pressable>
         ))}
       </View>
-      <Pressable onPress={onLogout} style={s.logout}>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="Sign out"
+        onPress={() =>
+          Alert.alert(
+            'Sign out?',
+            'Saved job data will remain on this device, but live updates will stop.',
+            [
+              { text: 'Stay signed in', style: 'cancel' },
+              { text: 'Sign out', style: 'destructive', onPress: onLogout },
+            ],
+          )
+        }
+        style={s.logout}
+      >
         <Ionicons name="log-out-outline" size={20} color={colors.danger} />
         <Text style={s.logoutText}>Sign out</Text>
       </Pressable>

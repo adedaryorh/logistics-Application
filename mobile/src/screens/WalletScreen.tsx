@@ -21,11 +21,13 @@ export function WalletScreen({
   return (
     <ScrollView contentContainerStyle={page.content}>
       <View style={page.header}>
-        <Text style={page.title}>Wallet</Text>
-        <IconButton name="help-circle-outline" />
+        <Text accessibilityRole="header" style={page.title}>
+          Earnings
+        </Text>
+        <IconButton name="help-circle-outline" label="Earnings help" />
       </View>
       <LinearGradient colors={['#183F46', '#0B7560']} style={s.card}>
-        <Text style={s.label}>AVAILABLE BALANCE</Text>
+        <Text style={s.label}>AVAILABLE TO WITHDRAW</Text>
         <Text style={s.balance}>
           {new Intl.NumberFormat('en-NG', {
             style: 'currency',
@@ -33,17 +35,22 @@ export function WalletScreen({
             maximumFractionDigits: 0,
           }).format(wallet.balance_minor / 100)}
         </Text>
-        <Text style={s.hint}>Logistics wallet</Text>
+        <Text style={s.hint}>FarmSense provider earnings</Text>
       </LinearGradient>
       <View style={s.actions}>
         {(
           [
-            ['add-circle-outline', 'Add money'],
-            ['send-outline', 'Send'],
-            ['receipt-outline', 'History'],
+            ['arrow-down-circle-outline', 'Withdraw'],
+            ['calendar-outline', 'Statements'],
+            ['receipt-outline', 'Job history'],
           ] as const
         ).map(([icon, label]) => (
-          <Pressable key={label} style={s.action}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={label}
+            key={label}
+            style={({ pressed }) => [s.action, pressed && { opacity: 0.72 }]}
+          >
             <View style={s.actionIcon}>
               <Ionicons name={icon} size={22} color={colors.greenDark} />
             </View>
@@ -63,9 +70,16 @@ export function WalletScreen({
                 ? `${ledger.length} recent transaction${ledger.length === 1 ? '' : 's'}`
                 : 'No wallet activity'}
         </Text>
-        <Text style={s.emptyCopy}>{error ?? 'Payments and refunds will appear here.'}</Text>
+        <Text style={s.emptyCopy}>
+          {error ?? 'Completed-job earnings and withdrawals will appear here.'}
+        </Text>
         {error ? (
-          <Pressable onPress={onRefresh}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Retry earnings"
+            hitSlop={12}
+            onPress={onRefresh}
+          >
             <Text style={s.retry}>Try again</Text>
           </Pressable>
         ) : null}

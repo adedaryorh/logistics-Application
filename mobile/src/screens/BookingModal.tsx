@@ -109,6 +109,9 @@ export function BookingModal({
           <View style={s.types}>
             {(['parcel', 'food', 'ride'] as DeliveryType[]).map((item) => (
               <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={`Select ${item} delivery`}
+                accessibilityState={{ selected: type === item }}
                 key={item}
                 onPress={() => setType(item)}
                 style={[s.type, type === item && s.typeActive]}
@@ -121,7 +124,13 @@ export function BookingModal({
             <Text style={s.label}>PICKUP</Text>
             <View style={s.inputRow}>
               <TextInput value={pickup} onChangeText={setPickup} style={[s.input, s.flex]} />
-              <Pressable onPress={useCurrentLocation}>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Use current pickup location"
+                hitSlop={14}
+                onPress={useCurrentLocation}
+                style={s.locateButton}
+              >
                 <Ionicons name="locate" size={20} color={colors.greenDark} />
               </Pressable>
             </View>
@@ -136,6 +145,9 @@ export function BookingModal({
             />
           </View>
           <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Create delivery"
+            accessibilityState={{ disabled: !dropoff.trim() || loading }}
             disabled={!dropoff.trim() || loading}
             onPress={submit}
             style={[s.button, (!dropoff.trim() || loading) && s.disabled]}
@@ -198,6 +210,7 @@ const s = StyleSheet.create({
   input: { fontSize: 15, fontWeight: '700', color: colors.ink, paddingVertical: 9 },
   inputRow: { flexDirection: 'row', alignItems: 'center' },
   flex: { flex: 1 },
+  locateButton: { width: 48, height: 48, alignItems: 'center', justifyContent: 'center' },
   divider: { height: 1, backgroundColor: colors.line, marginVertical: 6 },
   button: {
     height: 55,

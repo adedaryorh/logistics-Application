@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Pressable, SafeAreaView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
-import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { api } from './src/api';
 import { demoUser } from './src/data/demo';
 import { useOrders } from './src/hooks/useOrders';
@@ -27,7 +27,7 @@ const tabs: {
 }[] = [
   { key: 'home', icon: 'home-outline', activeIcon: 'home', label: 'Home' },
   { key: 'orders', icon: 'receipt-outline', activeIcon: 'receipt', label: 'Orders' },
-  { key: 'wallet', icon: 'wallet-outline', activeIcon: 'wallet', label: 'Wallet' },
+  { key: 'wallet', icon: 'wallet-outline', activeIcon: 'wallet', label: 'Earnings' },
   { key: 'profile', icon: 'person-outline', activeIcon: 'person', label: 'Profile' },
 ];
 
@@ -39,6 +39,7 @@ export default function App() {
   const [tab, setTab] = useState<Tab>('home');
   const [bookingType, setBookingType] = useState<DeliveryType>();
   const [trackingOrder, setTrackingOrder] = useState<Order>();
+  const providerMode = user.role === 'driver' || user.role === 'provider';
   const { orders, loading, error, refresh, setOrders } = useOrders(demoMode || !entered);
   const walletState = useWallet(entered, demoMode);
   useNotifications(entered && !demoMode);
@@ -66,6 +67,7 @@ export default function App() {
           orders={orders}
           onBook={setBookingType}
           onTrack={setTrackingOrder}
+          providerMode={providerMode}
         />
       );
     if (tab === 'orders')
@@ -76,7 +78,7 @@ export default function App() {
           error={error}
           onRefresh={refresh}
           onTrack={setTrackingOrder}
-          onBook={() => setBookingType('parcel')}
+          onBook={providerMode ? refresh : () => setBookingType('parcel')}
         />
       );
     if (tab === 'wallet')
@@ -90,7 +92,7 @@ export default function App() {
         />
       );
     return <ProfileScreen user={user} demoMode={demoMode} onLogout={logout} />;
-  }, [tab, user, orders, loading, error, refresh, demoMode, walletState]);
+  }, [tab, user, orders, loading, error, refresh, demoMode, walletState, providerMode]);
 
   function enterDemo() {
     setDemoMode(true);
@@ -134,6 +136,9 @@ export default function App() {
               const active = tab === item.key;
               return (
                 <Pressable
+                  accessibilityRole="tab"
+                  accessibilityLabel={item.label}
+                  accessibilityState={{ selected: active }}
                   key={item.key}
                   onPress={() => {
                     setTab(item.key);
@@ -153,13 +158,15 @@ export default function App() {
               );
             })}
           </View>
-          <BookingModal
-            visible={!!bookingType}
-            initialType={bookingType ?? 'parcel'}
-            demoMode={demoMode}
-            onClose={() => setBookingType(undefined)}
-            onCreated={orderCreated}
-          />
+          {!providerMode ? (
+            <BookingModal
+              visible={!!bookingType}
+              initialType={bookingType ?? 'parcel'}
+              demoMode={demoMode}
+              onClose={() => setBookingType(undefined)}
+              onCreated={orderCreated}
+            />
+          ) : null}
           <TrackingModal
             order={trackingOrder}
             demoMode={demoMode}
@@ -185,7 +192,7 @@ const s = StyleSheet.create({
     left: 14,
     right: 14,
     bottom: 10,
-    height: 76,
+    minHeight: 76,
     backgroundColor: 'white',
     borderRadius: 24,
     flexDirection: 'row',
@@ -195,7 +202,7 @@ const s = StyleSheet.create({
     borderColor: colors.line,
     ...shadow,
   },
-  tab: { flex: 1, alignItems: 'center', gap: 4 },
+  tab: { flex: 1, minHeight: 56, alignItems: 'center', justifyContent: 'center', gap: 4 },
   activeIcon: {
     width: 38,
     height: 32,

@@ -10,11 +10,13 @@ export function HomeScreen({
   orders,
   onBook,
   onTrack,
+  providerMode,
 }: {
   user: User;
   orders: Order[];
   onBook: (t: DeliveryType) => void;
   onTrack: (o: Order) => void;
+  providerMode: boolean;
 }) {
   const active = orders.find((o) => !['delivered', 'cancelled', 'failed'].includes(o.status));
   const firstName = user.email.split('@')[0];
@@ -22,47 +24,83 @@ export function HomeScreen({
     <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={page.content}>
       <View style={s.top}>
         <View>
-          <Text style={s.eyebrow}>GOOD MORNING</Text>
-          <Text style={s.greeting}>
-            Hello, {firstName} <Text style={{ color: colors.green }}>✦</Text>
-          </Text>
+          <Text style={s.eyebrow}>{providerMode ? 'FIELD OPERATIONS' : 'GOOD MORNING'}</Text>
+          <Text style={s.greeting}>Hello, {firstName}</Text>
         </View>
         <View style={s.actions}>
-          <IconButton name="search-outline" />
-          <IconButton name="notifications-outline" />
+          <IconButton name="search-outline" label="Search jobs" />
+          <IconButton name="notifications-outline" label="Notifications" />
         </View>
       </View>
       <LinearGradient colors={['#173D45', '#0F5C50']} style={s.hero}>
-        <Text style={s.badge}>● DELIVERING ACROSS LAGOS</Text>
-        <Text style={s.heroTitle}>Anything, anywhere.{`\n`}We’ll get it there.</Text>
-        <Text style={s.heroCopy}>Fast, trackable delivery with trusted riders.</Text>
-        <Pressable onPress={() => onBook('parcel')} style={s.heroButton}>
-          <Text style={s.heroButtonText}>Book a delivery</Text>
+        <Text style={s.badge}>
+          {providerMode ? 'DRIVER STATUS • READY' : 'DELIVERING ACROSS LAGOS'}
+        </Text>
+        <Text style={s.heroTitle}>
+          {providerMode
+            ? `Move every load safely.${`\n`}Proof at every step.`
+            : `Anything, anywhere.${`\n`}We’ll get it there.`}
+        </Text>
+        <Text style={s.heroCopy}>
+          {providerMode
+            ? 'Review load handling, follow the route, and capture clear proof.'
+            : 'Fast, trackable delivery with trusted riders.'}
+        </Text>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={providerMode ? 'View delivery jobs' : 'Book a delivery'}
+          onPress={() => (providerMode ? active && onTrack(active) : onBook('parcel'))}
+          style={s.heroButton}
+        >
+          <Text style={s.heroButtonText}>
+            {providerMode
+              ? active
+                ? 'Continue active job'
+                : 'View delivery jobs'
+              : 'Book a delivery'}
+          </Text>
           <Ionicons name="arrow-forward" size={18} />
         </Pressable>
       </LinearGradient>
-      <SectionTitle title="What do you need?" />
-      <View style={s.services}>
-        {(
-          [
-            ['parcel', 'cube-outline', 'Send parcel', '#DDF5EA'],
-            ['food', 'fast-food-outline', 'Get food', '#FFE3D2'],
-            ['ride', 'car-sport-outline', 'Book ride', '#E4E6FF'],
-          ] as const
-        ).map(([type, icon, label, bg]) => (
-          <Pressable key={type} onPress={() => onBook(type)} style={s.service}>
-            <View style={[s.serviceIcon, { backgroundColor: bg }]}>
-              <Ionicons name={icon} size={23} color={colors.ink} />
-            </View>
-            <Text style={s.serviceTitle}>{label}</Text>
-            <Text style={s.serviceCopy}>Fast & reliable</Text>
-          </Pressable>
-        ))}
-      </View>
+      {!providerMode ? (
+        <>
+          <SectionTitle title="What do you need?" />
+          <View style={s.services}>
+            {(
+              [
+                ['parcel', 'cube-outline', 'Send parcel', '#DDF5EA'],
+                ['food', 'fast-food-outline', 'Get food', '#FFE3D2'],
+                ['ride', 'car-sport-outline', 'Book ride', '#E4E6FF'],
+              ] as const
+            ).map(([type, icon, label, bg]) => (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={label}
+                accessibilityHint="Starts a new request"
+                key={type}
+                onPress={() => onBook(type)}
+                style={s.service}
+              >
+                <View style={[s.serviceIcon, { backgroundColor: bg }]}>
+                  <Ionicons name={icon} size={23} color={colors.ink} />
+                </View>
+                <Text style={s.serviceTitle}>{label}</Text>
+                <Text style={s.serviceCopy}>Fast & reliable</Text>
+              </Pressable>
+            ))}
+          </View>
+        </>
+      ) : null}
       {active ? (
         <>
           <SectionTitle title="In progress" action="Track" onAction={() => onTrack(active)} />
-          <Pressable onPress={() => onTrack(active)} style={s.active}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={`Continue ${active.type} job`}
+            accessibilityHint="Opens route, load details, and proof actions"
+            onPress={() => onTrack(active)}
+            style={s.active}
+          >
             <View style={s.activeTop}>
               <View style={s.activeIcon}>
                 <Ionicons name="bicycle" size={23} color={colors.greenDark} />

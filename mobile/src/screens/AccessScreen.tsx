@@ -63,10 +63,13 @@ export function AccessScreen({
           <Ionicons name="navigate" size={25} color={colors.ink} />
         </View>
         <View style={s.heroBottom}>
-          <Text style={s.kicker}>MOVE WITH CONFIDENCE</Text>
-          <Text style={s.title}>Your city,{`\n`}within reach.</Text>
+          <Text style={s.kicker}>FARMSENSE FIELD LOGISTICS</Text>
+          <Text accessibilityRole="header" style={s.title}>
+            Every load,{`\n`}handled right.
+          </Text>
           <Text style={s.copy}>
-            Send parcels, order favourites, and track every trip from one beautiful place.
+            Your driver workspace for assigned jobs, safe handling, route progress, and delivery
+            proof.
           </Text>
         </View>
       </LinearGradient>
@@ -82,8 +85,8 @@ export function AccessScreen({
           {mode === 'reset'
             ? 'We’ll email you a secure reset link.'
             : mode === 'register'
-              ? 'A few details and you’re ready to move.'
-              : 'Sign in to keep things moving.'}
+              ? 'Create your provider account to receive assigned work.'
+              : 'Sign in to review and complete your delivery jobs.'}
         </Text>
         <Field
           icon="mail-outline"
@@ -101,11 +104,29 @@ export function AccessScreen({
           />
         ) : null}
         {mode === 'login' ? (
-          <Pressable onPress={() => setMode('reset')}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Forgot password"
+            hitSlop={10}
+            onPress={() => setMode('reset')}
+          >
             <Text style={s.forgot}>Forgot password?</Text>
           </Pressable>
         ) : null}
-        <Pressable onPress={submit} disabled={loading} style={s.button}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={
+            mode === 'login'
+              ? 'Sign in'
+              : mode === 'register'
+                ? 'Create account'
+                : 'Send reset link'
+          }
+          accessibilityState={{ disabled: loading }}
+          onPress={submit}
+          disabled={loading}
+          style={({ pressed }) => [s.button, pressed && { opacity: 0.78 }]}
+        >
           {loading ? (
             <ActivityIndicator color="white" />
           ) : (
@@ -122,6 +143,14 @@ export function AccessScreen({
           )}
         </Pressable>
         <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={
+            mode === 'register'
+              ? 'Sign in instead'
+              : mode === 'login'
+                ? 'Create an account'
+                : 'Back to sign in'
+          }
           onPress={() =>
             setMode(mode === 'register' ? 'login' : mode === 'login' ? 'register' : 'login')
           }
@@ -135,7 +164,12 @@ export function AccessScreen({
                 : 'Back to sign in'}
           </Text>
         </Pressable>
-        <Pressable onPress={onDemo} style={s.demo}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Explore provider demo"
+          onPress={onDemo}
+          style={s.demo}
+        >
           <Text style={s.demoText}>Explore the demo</Text>
         </Pressable>
         <Text style={s.legal}>By continuing, you agree to our Terms and Privacy Policy.</Text>
@@ -163,6 +197,10 @@ function Field({
         autoCapitalize="none"
         style={s.input}
         placeholderTextColor="#9AA39F"
+        accessibilityLabel={props.placeholder}
+        accessibilityHint={secure ? 'Enter your secure password' : 'Enter your account email'}
+        autoComplete={secure ? 'current-password' : 'email'}
+        keyboardType={secure ? 'default' : 'email-address'}
       />
     </View>
   );
