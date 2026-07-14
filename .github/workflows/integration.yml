@@ -21,16 +21,25 @@ jobs:
         run: docker compose up -d postgres redis kafka schema-registry identity-service logistics-service payment-service api-gateway
       - name: Wait for services
         run: |
+          set -e
           for url in \
             http://localhost:8080/healthz \
             http://localhost:8082/readyz \
             http://localhost:8084/readyz; do
+            ready=false
             for i in $(seq 1 30); do
               if curl -fsS "$url" >/dev/null; then
+                ready=true
                 break
               fi
               sleep 2
             done
+            if [ "$ready" != true ]; then
+              echo "service did not become ready: $url" >&2
+              docker compose ps
+              docker compose logs --tail=100
+              exit 1
+            fi
           done
       - name: Run integration suites
         env:

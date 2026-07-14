@@ -28,13 +28,22 @@ type Options struct {
 	ServiceName  string
 	GRPCPort     string
 	Register     func(*gin.Engine, *config.Config)
-	Setup        func(*config.Config) (func(*gin.Engine), func(context.Context) error, error)
+	NewApp       func(*config.Config) App
 	RegisterGRPC func(*grpc.Server, *config.Config)
 }
 
+// App captures the lifecycle shared by the platform's stateful services.
+// Keeping this wiring here leaves service entrypoints responsible only for
+// naming the service, selecting its ports, and constructing the application.
+type App interface {
+	RegisterRoutes(*gin.Engine)
+	RegisterGRPC(*grpc.Server, *config.Config)
+	StartBackground(context.Context, *config.Config) error
+}
+
 func Run(opts Options) error {
-	if opts.ServiceName == "" {
-		return fmt.Errorf("service name is required")
+	if err := opts.validate(); err != nil {
+		return err
 	}
 
 	cfg, err := config.LoadConfig("")
@@ -62,11 +71,16 @@ func Run(opts Options) error {
 		background     func(context.Context) error
 	)
 
-	if opts.Setup != nil {
-		registerRoutes, background, err = opts.Setup(cfg)
-		if err != nil {
-			return fmt.Errorf("setup service: %w", err)
+	if opts.NewApp != nil {
+		app := opts.NewApp(cfg)
+		if app == nil {
+			return fmt.Errorf("setup service: app factory returned nil")
 		}
+		registerRoutes = app.RegisterRoutes
+		background = func(ctx context.Context) error {
+			return app.StartBackground(ctx, cfg)
+		}
+		opts.RegisterGRPC = app.RegisterGRPC
 	} else if opts.Register != nil {
 		registerRoutes = func(router *gin.Engine) {
 			opts.Register(router, cfg)
@@ -153,7 +167,10 @@ func Run(opts Options) error {
 		server.TLSConfig = tlsConfig
 	}
 
-	errCh := make(chan error, 1)
+	// HTTP, gRPC, and the background worker can fail independently. Buffer one
+	// result per component so a second failure never leaves a goroutine blocked
+	// while shutdown is already in progress.
+	errCh := make(chan error, 3)
 	bgDone := make(chan struct{})
 	bgCtx, bgCancel := context.WithCancel(context.Background())
 	defer bgCancel()
@@ -162,7 +179,7 @@ func Run(opts Options) error {
 		go func() {
 			defer close(bgDone)
 			if err := background(bgCtx); err != nil && !errors.Is(err, context.Canceled) {
-				errCh <- fmt.Errorf("background worker: %w", err)
+				errCh <- fmt.Errorf("run background worker: %w", err)
 			}
 		}()
 	} else {
@@ -180,26 +197,26 @@ func Run(opts Options) error {
 		} else {
 			err = server.ListenAndServe()
 		}
-		if err != nil && err != http.ErrServerClosed {
-			errCh <- err
+		if err != nil && !errors.Is(err, http.ErrServerClosed) {
+			errCh <- fmt.Errorf("serve http: %w", err)
 		}
 	}()
 	if grpcServer != nil {
 		go func() {
 			log.Info("starting grpc server", zap.String("address", ":"+grpcPort))
 			if err := grpcServer.Serve(grpcListener); err != nil {
-				errCh <- err
+				errCh <- fmt.Errorf("serve grpc: %w", err)
 			}
 		}()
 	}
 
-	stop := make(chan os.Signal, 1)
-	signal.Notify(stop, os.Interrupt, syscall.SIGTERM)
+	stopCtx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
 
+	var runErr error
 	select {
-	case err := <-errCh:
-		return fmt.Errorf("start server: %w", err)
-	case <-stop:
+	case runErr = <-errCh:
+	case <-stopCtx.Done():
 	}
 
 	log.Info("shutting down service")
@@ -208,8 +225,9 @@ func Run(opts Options) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
+	var shutdownErr error
 	if err := server.Shutdown(ctx); err != nil {
-		return fmt.Errorf("shutdown server: %w", err)
+		shutdownErr = fmt.Errorf("shutdown http server: %w", err)
 	}
 	if grpcServer != nil {
 		stopped := make(chan struct{})
@@ -221,10 +239,25 @@ func Run(opts Options) error {
 		case <-stopped:
 		case <-ctx.Done():
 			grpcServer.Stop()
+			shutdownErr = errors.Join(shutdownErr, fmt.Errorf("shutdown grpc server: %w", ctx.Err()))
 		}
 	}
-	<-bgDone
+	select {
+	case <-bgDone:
+	case <-ctx.Done():
+		shutdownErr = errors.Join(shutdownErr, fmt.Errorf("shutdown background worker: %w", ctx.Err()))
+	}
 
 	log.Info("service stopped")
+	return errors.Join(runErr, shutdownErr)
+}
+
+func (opts Options) validate() error {
+	if opts.ServiceName == "" {
+		return fmt.Errorf("service name is required")
+	}
+	if opts.NewApp != nil && (opts.Register != nil || opts.RegisterGRPC != nil) {
+		return fmt.Errorf("new app cannot be combined with route or grpc registration callbacks")
+	}
 	return nil
 }

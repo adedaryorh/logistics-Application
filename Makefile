@@ -6,27 +6,32 @@ MIGRATE ?= migrate
 GO ?= go
 DOCKER_COMPOSE ?= docker compose
 PROTOC ?= protoc
-ROOT_DIR := $(CURDIR)
-export GOCACHE := $(ROOT_DIR)/.cache/go-build
 
-.PHONY: dev build test test-kafka-integration test-integration test-contracts test-e2e test-load test-chaos test-migrations lint migrate-up migrate-down proto proto-check-tools proto-lint proto-verify docker-build clean
+.PHONY: dev build test vet test-kafka-integration test-integration test-contracts test-e2e test-load test-chaos test-migrations lint migrate-up migrate-down proto proto-check-tools proto-lint proto-verify docker-build clean
 
 dev:
 	$(DOCKER_COMPOSE) up --build
 
 build:
 	mkdir -p bin
-	for service in $(SERVICES); do \
+	set -e; for service in $(SERVICES); do \
 		$(GO) build -o bin/$$service ./services/$$service/cmd/server; \
 	done
 
 test:
-	for dir in pkg/* services/*; do \
+	set -e; for dir in pkg/* services/*; do \
 		if [ -f "$$dir/go.mod" ]; then \
 			(cd "$$dir" && $(GO) test ./...); \
 		fi; \
 	done
 	(cd tests && $(GO) test ./...)
+
+vet:
+	set -e; for dir in pkg/* services/* tests; do \
+		if [ -f "$$dir/go.mod" ]; then \
+			(cd "$$dir" && $(GO) vet ./...); \
+		fi; \
+	done
 
 test-kafka-integration:
 	cd pkg/kafka && KAFKA_INTEGRATION_BROKERS=$${KAFKA_INTEGRATION_BROKERS:-localhost:9092} $(GO) test -run TestKafkaRealBrokerIntegration ./...
@@ -50,15 +55,19 @@ test-migrations:
 	cd tests && TEST_INTEGRATION=1 $(GO) test -run TestMigrationsRollbackInTransaction ./...
 
 lint:
-	golangci-lint run ./...
+	set -e; for dir in pkg/* services/* tests; do \
+		if [ -f "$$dir/go.mod" ]; then \
+			(cd "$$dir" && golangci-lint run ./...); \
+		fi; \
+	done
 
 migrate-up:
-	for schema in identity logistics mobility payment operations; do \
+	set -e; for schema in identity logistics mobility payment operations; do \
 		$(MIGRATE) -path infra/migrations/$$schema -database "$${MIGRATE_DATABASE_URL:?set MIGRATE_DATABASE_URL}" up; \
 	done
 
 migrate-down:
-	for schema in operations payment mobility logistics identity; do \
+	set -e; for schema in operations payment mobility logistics identity; do \
 		$(MIGRATE) -path infra/migrations/$$schema -database "$${MIGRATE_DATABASE_URL:?set MIGRATE_DATABASE_URL}" down 1; \
 	done
 
@@ -77,11 +86,10 @@ proto-verify:
 	bash scripts/proto-verify.sh
 
 docker-build:
-	for service in $(SERVICES); do \
+	set -e; for service in $(SERVICES); do \
 		docker build -t logistics-platform/$$service:latest -f services/$$service/Dockerfile .; \
 	done
 
 clean:
 	rm -rf bin
-	rm -rf .cache
 	find . -name '.air.toml' -prune -o -name '*.test' -delete

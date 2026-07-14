@@ -2,5 +2,6 @@
 .cache/
 bin/
 .idea/
-.env.example
-.env/
+.env
+.env.*
+!.env.example
