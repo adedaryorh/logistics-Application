@@ -92,6 +92,8 @@ export const api = {
         body: JSON.stringify(payload),
       })
     ).order,
+  recordProof: async (id: string, kind: 'pickup' | 'delivery', payload: { evidence_url: string; notes?: string; recipient_name?: string; coordinate: { lat: number; lng: number } }) =>
+    (await request<{ order: Order }>(`/api/v1/orders/${id}/proofs/${kind}`, { method: 'POST', body: JSON.stringify({ ...payload, captured_at: new Date().toISOString() }) })).order,
   async logout() {
     await SecureStore.deleteItemAsync(TOKEN_KEY);
     await SecureStore.deleteItemAsync(REFRESH_KEY);

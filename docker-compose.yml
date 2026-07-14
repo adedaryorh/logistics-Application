@@ -216,6 +216,9 @@ services:
       DB_USER: logistics_user
       DB_PASSWORD: logistics_pass
       DB_NAME: logistics
+      LOGISTICS_PERSISTENCE_MODE: sql
+      FARMSENSE_SERVICE_SECRET: ${FARMSENSE_SERVICE_SECRET:-farmsense-dev-secret}
+      TASKAM_SERVICE_SECRET: ${TASKAM_SERVICE_SECRET:-taskam-dev-secret}
     ports:
       - "8082:8082"
 

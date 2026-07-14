@@ -61,7 +61,9 @@ export function OrdersScreen({
               <View style={s.icon}>
                 <Ionicons
                   name={
-                    order.type === 'parcel'
+                    order.type === 'agricultural'
+                      ? 'leaf-outline'
+                      : order.type === 'parcel'
                       ? 'cube-outline'
                       : order.type === 'food'
                         ? 'fast-food-outline'

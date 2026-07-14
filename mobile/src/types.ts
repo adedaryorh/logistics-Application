@@ -1,5 +1,5 @@
 export type Tab = 'home' | 'orders' | 'wallet' | 'profile';
-export type DeliveryType = 'parcel' | 'food' | 'ride';
+export type DeliveryType = 'parcel' | 'food' | 'ride' | 'agricultural';
 export type OrderStatus =
   | 'pending'
   | 'awaiting_payment'
@@ -22,7 +22,19 @@ export type Order = {
   currency: string;
   created_at: string;
   driver_id?: string;
+  platform_user_id?: string;
+  marketplace_request_id?: string;
+  agricultural_shipment?: AgriculturalShipment;
+  proofs?: DeliveryProof[];
 };
+
+export type AgriculturalShipment = {
+  produce_type: string; quantity: number; quantity_unit: string; weight_kg?: number;
+  packaging: string; requires_refrigeration: boolean; cold_chain_min_c?: number; cold_chain_max_c?: number;
+  pickup_window: { start_at: string; end_at: string }; delivery_window: { start_at: string; end_at: string };
+  handling_notes?: string; loading_notes?: string;
+};
+export type DeliveryProof = { id: string; type: 'pickup' | 'delivery'; evidence_url: string; recipient_name?: string; captured_at: string };
 
 export type User = { id: string; email: string; phone?: string; role?: string };
 export type Tracking = {

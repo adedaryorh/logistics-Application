@@ -60,6 +60,9 @@ func (s *Service) HandlePaymentFailed(ctx context.Context, orderID, reason strin
 		"reason":   reasonCopy,
 	})
 	s.broadcastLocked(order)
+	if order.AgriculturalShipment != nil {
+		s.sendAgriculturalStatus(order, "agricultural.delivery.failed")
+	}
 	return nil
 }
 
@@ -90,5 +93,8 @@ func (s *Service) HandlePaymentRefunded(ctx context.Context, orderID string) err
 		"reason":   reason,
 	})
 	s.broadcastLocked(order)
+	if order.AgriculturalShipment != nil {
+		s.sendAgriculturalStatus(order, "agricultural.delivery.cancelled")
+	}
 	return nil
 }

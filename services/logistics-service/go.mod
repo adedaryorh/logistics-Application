@@ -11,6 +11,7 @@ require (
 	github.com/adedaryorh/logistics-platform/pkg/servicehttp v0.0.0
 	github.com/gin-gonic/gin v1.12.0
 	github.com/google/uuid v1.6.0
+	github.com/lib/pq v1.10.9
 )
 
 replace github.com/adedaryorh/logistics-platform/pkg/servicehttp => ../../pkg/servicehttp

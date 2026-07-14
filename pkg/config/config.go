@@ -41,12 +41,13 @@ type GRPCConfig struct {
 
 // DatabaseConfig holds PostgreSQL configuration
 type DatabaseConfig struct {
-	Host     string `mapstructure:"DB_HOST"`
-	Port     string `mapstructure:"DB_PORT"`
-	User     string `mapstructure:"DB_USER"`
-	Password string `mapstructure:"DB_PASSWORD"`
-	DBName   string `mapstructure:"DB_NAME"`
-	SSLMode  string `mapstructure:"DB_SSLMODE"`
+	Host            string `mapstructure:"DB_HOST"`
+	Port            string `mapstructure:"DB_PORT"`
+	User            string `mapstructure:"DB_USER"`
+	Password        string `mapstructure:"DB_PASSWORD"`
+	DBName          string `mapstructure:"DB_NAME"`
+	SSLMode         string `mapstructure:"DB_SSLMODE"`
+	PersistenceMode string `mapstructure:"LOGISTICS_PERSISTENCE_MODE"`
 }
 
 // RedisConfig holds Redis configuration
@@ -93,14 +94,21 @@ type MoneyConfig struct {
 }
 
 type SecurityConfig struct {
-	InternalToken        string   `mapstructure:"INTERNAL_AUTH_TOKEN"`
-	CORSAllowedOrigins   []string `mapstructure:"CORS_ALLOWED_ORIGINS"`
-	TrustedProxyCIDRs    []string `mapstructure:"TRUSTED_PROXY_CIDRS"`
-	MTLSRequired         bool     `mapstructure:"INTERNAL_MTLS_REQUIRED"`
-	MTLSClientHeader     string   `mapstructure:"INTERNAL_MTLS_CLIENT_HEADER"`
-	RequireStrongSecrets bool     `mapstructure:"REQUIRE_STRONG_SECRETS"`
-	AnomalyThreshold     int      `mapstructure:"ANOMALY_THRESHOLD"`
-	AnomalyWindowSeconds int      `mapstructure:"ANOMALY_WINDOW_SECONDS"`
+	InternalToken                    string   `mapstructure:"INTERNAL_AUTH_TOKEN"`
+	CORSAllowedOrigins               []string `mapstructure:"CORS_ALLOWED_ORIGINS"`
+	TrustedProxyCIDRs                []string `mapstructure:"TRUSTED_PROXY_CIDRS"`
+	MTLSRequired                     bool     `mapstructure:"INTERNAL_MTLS_REQUIRED"`
+	MTLSClientHeader                 string   `mapstructure:"INTERNAL_MTLS_CLIENT_HEADER"`
+	RequireStrongSecrets             bool     `mapstructure:"REQUIRE_STRONG_SECRETS"`
+	AnomalyThreshold                 int      `mapstructure:"ANOMALY_THRESHOLD"`
+	AnomalyWindowSeconds             int      `mapstructure:"ANOMALY_WINDOW_SECONDS"`
+	FarmSenseServiceSecret           string   `mapstructure:"FARMSENSE_SERVICE_SECRET"`
+	TaskAmServiceSecret              string   `mapstructure:"TASKAM_SERVICE_SECRET"`
+	AgriculturalWebhookURL           string   `mapstructure:"AGRICULTURAL_WEBHOOK_URL"`
+	AgriculturalWebhookSigningSecret string   `mapstructure:"AGRICULTURAL_WEBHOOK_SIGNING_SECRET"`
+	EvidenceUploadBaseURL            string   `mapstructure:"EVIDENCE_UPLOAD_BASE_URL"`
+	EvidencePublicBaseURL            string   `mapstructure:"EVIDENCE_PUBLIC_BASE_URL"`
+	EvidenceSigningSecret            string   `mapstructure:"EVIDENCE_SIGNING_SECRET"`
 }
 
 // LoadConfig loads configuration from environment variables and optional config file
@@ -143,12 +151,13 @@ func LoadConfig(configPath string) (*Config, error) {
 			MCPServiceAddr:        v.GetString("MCP_GRPC_ADDR"),
 		},
 		Database: DatabaseConfig{
-			Host:     v.GetString("DB_HOST"),
-			Port:     v.GetString("DB_PORT"),
-			User:     v.GetString("DB_USER"),
-			Password: v.GetString("DB_PASSWORD"),
-			DBName:   v.GetString("DB_NAME"),
-			SSLMode:  v.GetString("DB_SSLMODE"),
+			Host:            v.GetString("DB_HOST"),
+			Port:            v.GetString("DB_PORT"),
+			User:            v.GetString("DB_USER"),
+			Password:        v.GetString("DB_PASSWORD"),
+			DBName:          v.GetString("DB_NAME"),
+			SSLMode:         v.GetString("DB_SSLMODE"),
+			PersistenceMode: v.GetString("LOGISTICS_PERSISTENCE_MODE"),
 		},
 		Redis: RedisConfig{
 			Addr:     v.GetString("REDIS_ADDR"),
@@ -182,14 +191,21 @@ func LoadConfig(configPath string) (*Config, error) {
 			DefaultCurrency: v.GetString("DEFAULT_CURRENCY"),
 		},
 		Security: SecurityConfig{
-			InternalToken:        v.GetString("INTERNAL_AUTH_TOKEN"),
-			CORSAllowedOrigins:   v.GetStringSlice("CORS_ALLOWED_ORIGINS"),
-			TrustedProxyCIDRs:    v.GetStringSlice("TRUSTED_PROXY_CIDRS"),
-			MTLSRequired:         v.GetBool("INTERNAL_MTLS_REQUIRED"),
-			MTLSClientHeader:     v.GetString("INTERNAL_MTLS_CLIENT_HEADER"),
-			RequireStrongSecrets: v.GetBool("REQUIRE_STRONG_SECRETS"),
-			AnomalyThreshold:     v.GetInt("ANOMALY_THRESHOLD"),
-			AnomalyWindowSeconds: v.GetInt("ANOMALY_WINDOW_SECONDS"),
+			InternalToken:                    v.GetString("INTERNAL_AUTH_TOKEN"),
+			CORSAllowedOrigins:               v.GetStringSlice("CORS_ALLOWED_ORIGINS"),
+			TrustedProxyCIDRs:                v.GetStringSlice("TRUSTED_PROXY_CIDRS"),
+			MTLSRequired:                     v.GetBool("INTERNAL_MTLS_REQUIRED"),
+			MTLSClientHeader:                 v.GetString("INTERNAL_MTLS_CLIENT_HEADER"),
+			RequireStrongSecrets:             v.GetBool("REQUIRE_STRONG_SECRETS"),
+			AnomalyThreshold:                 v.GetInt("ANOMALY_THRESHOLD"),
+			AnomalyWindowSeconds:             v.GetInt("ANOMALY_WINDOW_SECONDS"),
+			FarmSenseServiceSecret:           v.GetString("FARMSENSE_SERVICE_SECRET"),
+			TaskAmServiceSecret:              v.GetString("TASKAM_SERVICE_SECRET"),
+			AgriculturalWebhookURL:           v.GetString("AGRICULTURAL_WEBHOOK_URL"),
+			AgriculturalWebhookSigningSecret: v.GetString("AGRICULTURAL_WEBHOOK_SIGNING_SECRET"),
+			EvidenceUploadBaseURL:            v.GetString("EVIDENCE_UPLOAD_BASE_URL"),
+			EvidencePublicBaseURL:            v.GetString("EVIDENCE_PUBLIC_BASE_URL"),
+			EvidenceSigningSecret:            v.GetString("EVIDENCE_SIGNING_SECRET"),
 		},
 	}
 

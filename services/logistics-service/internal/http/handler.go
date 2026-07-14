@@ -17,16 +17,20 @@ import (
 	platformconfig "github.com/adedaryorh/logistics-platform/pkg/config"
 	platformerrors "github.com/adedaryorh/logistics-platform/pkg/errors"
 	platformkafka "github.com/adedaryorh/logistics-platform/pkg/kafka"
+	platformmiddleware "github.com/adedaryorh/logistics-platform/pkg/middleware"
+	"github.com/adedaryorh/logistics-platform/services/logistics-service/internal/evidence"
 	"github.com/adedaryorh/logistics-platform/services/logistics-service/internal/model"
 	logisticsservice "github.com/adedaryorh/logistics-platform/services/logistics-service/internal/service"
 )
 
 type Handler struct {
-	service *logisticsservice.Service
+	service  *logisticsservice.Service
+	evidence evidence.Presigner
 }
 
 type App struct {
 	handler *Handler
+	cfg     *platformconfig.Config
 }
 
 type createOrderRequest struct {
@@ -89,14 +93,37 @@ type ratingRequest struct {
 	Comment   string `json:"comment"`
 }
 
+type agriculturalQuoteRequest struct {
+	PlatformUserID       string                     `json:"platform_user_id"`
+	FarmSenseRequestID   string                     `json:"farmsense_request_id"`
+	MarketplaceRequestID string                     `json:"marketplace_request_id"`
+	IdempotencyKey       string                     `json:"idempotency_key"`
+	Pickup               model.Coordinate           `json:"pickup"`
+	Dropoff              model.Coordinate           `json:"dropoff"`
+	Shipment             model.AgriculturalShipment `json:"shipment"`
+}
+type agriculturalBookingRequest struct {
+	QuoteID        string `json:"quote_id"`
+	IdempotencyKey string `json:"idempotency_key"`
+}
+type proofRequest struct {
+	EvidenceURL   string           `json:"evidence_url"`
+	Notes         string           `json:"notes"`
+	RecipientName string           `json:"recipient_name"`
+	Coordinate    model.Coordinate `json:"coordinate"`
+	CapturedAt    time.Time        `json:"captured_at"`
+}
+
 func RegisterRoutes(router *gin.Engine, cfg *platformconfig.Config) {
 	NewApp(cfg).RegisterRoutes(router)
 }
 
 func NewApp(cfg *platformconfig.Config) *App {
 	return &App{
+		cfg: cfg,
 		handler: &Handler{
-			service: logisticsservice.New(cfg),
+			service:  logisticsservice.New(cfg),
+			evidence: evidence.HMACPresigner{UploadBaseURL: cfg.Security.EvidenceUploadBaseURL, PublicBaseURL: cfg.Security.EvidencePublicBaseURL, Secret: cfg.Security.EvidenceSigningSecret},
 		},
 	}
 }
@@ -112,6 +139,9 @@ func (a *App) RegisterRoutes(router *gin.Engine) {
 	v1.POST("/orders/:id/cancel", handler.cancelOrder)
 	v1.GET("/orders/:id/track", handler.trackOrder)
 	v1.POST("/orders/:id/ratings", handler.createRating)
+	v1.POST("/orders/:id/proofs/pickup", handler.recordPickupProof)
+	v1.POST("/orders/:id/proofs/delivery", handler.recordDeliveryProof)
+	v1.POST("/orders/:id/proofs/uploads", handler.createEvidenceUpload)
 
 	v1.POST("/drivers", handler.createDriver)
 	v1.GET("/drivers/me", handler.getDriverMe)
@@ -126,9 +156,133 @@ func (a *App) RegisterRoutes(router *gin.Engine) {
 	v1.PATCH("/merchants/:id/menu/items", handler.replaceMenuItems)
 	v1.POST("/merchants/:id/menu/items", handler.addMenuItem)
 	v1.DELETE("/merchants/:id/menu/items/:item_id", handler.deleteMenuItem)
+
+	secrets := map[string]string{"farmsense": a.cfg.Security.FarmSenseServiceSecret, "taskam": a.cfg.Security.TaskAmServiceSecret}
+	internal := router.Group("/internal/v1/agricultural", platformmiddleware.PlatformServiceAuth(secrets, 5*time.Minute))
+	internal.POST("/quotes", handler.createAgriculturalQuote)
+	internal.POST("/bookings", handler.createAgriculturalBooking)
+	internal.GET("/bookings/:id", handler.getAgriculturalBooking)
+	canonical := router.Group("/api/v1", platformmiddleware.PlatformServiceAuth(secrets, 5*time.Minute))
+	canonical.POST("/deliveries/quotes", handler.createCanonicalQuote)
+	canonical.POST("/deliveries", handler.createCanonicalBooking)
+	canonical.GET("/deliveries/:id", handler.getCanonicalDelivery)
+}
+
+func (h *Handler) createEvidenceUpload(c *gin.Context) {
+	var req struct {
+		FileName    string `json:"file_name"`
+		ContentType string `json:"content_type"`
+	}
+	if c.ShouldBindJSON(&req) != nil || req.FileName == "" || !strings.HasPrefix(req.ContentType, "image/") {
+		writeError(c, platformerrors.ErrBadRequest)
+		return
+	}
+	upload, err := h.evidence.Presign(c.Param("id"), req.FileName, req.ContentType, 15*time.Minute)
+	if err != nil {
+		writeError(c, platformerrors.ErrInternal)
+		return
+	}
+	writeSuccess(c, nethttp.StatusCreated, gin.H{"upload": upload})
+}
+
+func (h *Handler) createAgriculturalQuote(c *gin.Context) {
+	var req agriculturalQuoteRequest
+	if c.ShouldBindJSON(&req) != nil {
+		writeError(c, platformerrors.ErrBadRequest)
+		return
+	}
+	quote, err := h.service.CreateAgriculturalQuote(c.Request.Context(), logisticsservice.CreateAgriculturalQuoteInput{PlatformService: c.GetString("platform_service"), PlatformUserID: req.PlatformUserID, FarmSenseRequestID: req.FarmSenseRequestID, MarketplaceRequestID: req.MarketplaceRequestID, IdempotencyKey: req.IdempotencyKey, Pickup: req.Pickup, Dropoff: req.Dropoff, Shipment: req.Shipment})
+	if err != nil {
+		writeServiceError(c, err)
+		return
+	}
+	writeSuccess(c, nethttp.StatusCreated, gin.H{"quote": quote})
+}
+
+func (h *Handler) createCanonicalQuote(c *gin.Context) {
+	var req agriculturalQuoteRequest
+	if c.ShouldBindJSON(&req) != nil || c.GetHeader("Idempotency-Key") == "" {
+		writeError(c, platformerrors.ErrBadRequest)
+		return
+	}
+	req.IdempotencyKey = c.GetHeader("Idempotency-Key")
+	quote, err := h.service.CreateAgriculturalQuote(c.Request.Context(), logisticsservice.CreateAgriculturalQuoteInput{PlatformService: c.GetString("platform_service"), PlatformUserID: req.PlatformUserID, FarmSenseRequestID: req.FarmSenseRequestID, MarketplaceRequestID: req.MarketplaceRequestID, IdempotencyKey: req.IdempotencyKey, Pickup: req.Pickup, Dropoff: req.Dropoff, Shipment: req.Shipment})
+	if err != nil {
+		writeServiceError(c, err)
+		return
+	}
+	c.JSON(nethttp.StatusCreated, gin.H{"quotes": []gin.H{{"quote_id": quote.ID, "platform_user_id": quote.PlatformUserID, "farmsense_request_id": quote.FarmSenseRequestID, "marketplace_request_id": quote.MarketplaceRequestID, "price_minor": quote.PriceMinor, "currency": quote.Currency, "expires_at": quote.ExpiresAt, "shipment": quote.Shipment}}})
+}
+
+func (h *Handler) createCanonicalBooking(c *gin.Context) {
+	var req agriculturalBookingRequest
+	if c.ShouldBindJSON(&req) != nil || c.GetHeader("Idempotency-Key") == "" {
+		writeError(c, platformerrors.ErrBadRequest)
+		return
+	}
+	order, err := h.service.CreateAgriculturalBooking(c.Request.Context(), logisticsservice.CreateAgriculturalBookingInput{PlatformService: c.GetString("platform_service"), QuoteID: req.QuoteID, IdempotencyKey: c.GetHeader("Idempotency-Key")})
+	if err != nil {
+		writeServiceError(c, err)
+		return
+	}
+	c.JSON(nethttp.StatusCreated, gin.H{"platform_user_id": order.PlatformUserID, "farmsense_request_id": order.FarmSenseRequestID, "marketplace_request_id": order.MarketplaceRequestID, "logistics_delivery_id": order.ID, "status": logisticsservice.NormalizedStatus(order.Status)})
+}
+
+func (h *Handler) getCanonicalDelivery(c *gin.Context) {
+	order, err := h.service.GetOrder(c.Request.Context(), c.Param("id"))
+	if err != nil || order.SourcePlatformService != c.GetString("platform_service") {
+		writeError(c, platformerrors.ErrNotFound)
+		return
+	}
+	c.JSON(nethttp.StatusOK, gin.H{"platform_user_id": order.PlatformUserID, "farmsense_request_id": order.FarmSenseRequestID, "marketplace_request_id": order.MarketplaceRequestID, "logistics_delivery_id": order.ID, "status": logisticsservice.NormalizedStatus(order.Status)})
+}
+func (h *Handler) createAgriculturalBooking(c *gin.Context) {
+	var req agriculturalBookingRequest
+	if c.ShouldBindJSON(&req) != nil {
+		writeError(c, platformerrors.ErrBadRequest)
+		return
+	}
+	order, err := h.service.CreateAgriculturalBooking(c.Request.Context(), logisticsservice.CreateAgriculturalBookingInput{PlatformService: c.GetString("platform_service"), QuoteID: req.QuoteID, IdempotencyKey: req.IdempotencyKey})
+	if err != nil {
+		writeServiceError(c, err)
+		return
+	}
+	writeSuccess(c, nethttp.StatusCreated, gin.H{"booking": order})
+}
+func (h *Handler) getAgriculturalBooking(c *gin.Context) {
+	order, err := h.service.GetOrder(c.Request.Context(), c.Param("id"))
+	if err != nil {
+		writeServiceError(c, err)
+		return
+	}
+	if order.AgriculturalShipment == nil {
+		writeError(c, platformerrors.ErrNotFound)
+		return
+	}
+	if order.SourcePlatformService != c.GetString("platform_service") {
+		writeError(c, platformerrors.ErrNotFound)
+		return
+	}
+	writeSuccess(c, nethttp.StatusOK, gin.H{"booking": order})
+}
+func (h *Handler) recordPickupProof(c *gin.Context)   { h.recordProof(c, "pickup") }
+func (h *Handler) recordDeliveryProof(c *gin.Context) { h.recordProof(c, "delivery") }
+func (h *Handler) recordProof(c *gin.Context, kind string) {
+	var req proofRequest
+	if c.ShouldBindJSON(&req) != nil {
+		writeError(c, platformerrors.ErrBadRequest)
+		return
+	}
+	order, err := h.service.RecordDeliveryProof(c.Request.Context(), logisticsservice.RecordProofInput{OrderID: c.Param("id"), DriverUserID: c.GetHeader("X-User-ID"), Type: kind, EvidenceURL: req.EvidenceURL, Notes: req.Notes, RecipientName: req.RecipientName, Coordinate: req.Coordinate, CapturedAt: req.CapturedAt})
+	if err != nil {
+		writeServiceError(c, err)
+		return
+	}
+	writeSuccess(c, nethttp.StatusCreated, gin.H{"order": order, "proof": order.Proofs[len(order.Proofs)-1]})
 }
 
 func (a *App) StartBackground(ctx context.Context, cfg *platformconfig.Config) error {
+	go a.handler.service.StartWebhookWorker(ctx)
 	if !cfg.Kafka.Enabled {
 		<-ctx.Done()
 		return ctx.Err()
@@ -512,7 +666,10 @@ func (h *Handler) createRating(c *gin.Context) {
 func (h *Handler) readyz(c *gin.Context) {
 	ctx, cancel := context.WithTimeout(c.Request.Context(), time.Second)
 	defer cancel()
-	_ = ctx
+	if err := h.service.Ready(ctx); err != nil {
+		writeError(c, platformerrors.ErrInternal)
+		return
+	}
 	writeSuccess(c, nethttp.StatusOK, gin.H{"status": "ready"})
 }
 

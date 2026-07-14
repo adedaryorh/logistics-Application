@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Modal, SafeAreaView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Modal, Pressable, SafeAreaView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import MapView, { Marker } from 'react-native-maps';
 import { api } from '../api';
@@ -11,15 +11,20 @@ import { colors, radius, shadow } from '../theme';
 export function TrackingModal({
   order,
   demoMode,
+  providerMode,
   onClose,
 }: {
   order?: Order;
   demoMode: boolean;
+  providerMode: boolean;
   onClose: () => void;
 }) {
   const [data, setData] = useState<Tracking>();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string>();
+  const [evidenceURL, setEvidenceURL] = useState('');
+  const [recipientName, setRecipientName] = useState('');
+  const [savingProof, setSavingProof] = useState(false);
   useEffect(() => {
     if (!order) return;
     if (demoMode) {
@@ -48,6 +53,7 @@ export function TrackingModal({
       .finally(() => setLoading(false));
     return () => close?.();
   }, [order, demoMode]);
+  const currentStatus = data?.status ?? order?.status;
   return (
     <Modal visible={!!order} animationType="slide" onRequestClose={onClose}>
       <SafeAreaView style={s.page}>
@@ -113,6 +119,25 @@ export function TrackingModal({
                 <IconButton name="call-outline" />
               </View>
               <Text style={s.dropoff}>Dropoff • {order?.dropoff.address}</Text>
+              {order?.agricultural_shipment ? (
+                <View style={s.jobCard}>
+                  <Text style={s.jobTitle}>Agricultural load</Text>
+                  <Text style={s.jobLine}>{order.agricultural_shipment.produce_type} • {order.agricultural_shipment.quantity} {order.agricultural_shipment.quantity_unit} • {order.agricultural_shipment.packaging}</Text>
+                  <Text style={s.jobLine}>{order.agricultural_shipment.requires_refrigeration ? `Cold chain ${order.agricultural_shipment.cold_chain_min_c}–${order.agricultural_shipment.cold_chain_max_c}°C` : 'No refrigeration required'}</Text>
+                  {order.agricultural_shipment.handling_notes ? <Text style={s.jobNote}>Handle: {order.agricultural_shipment.handling_notes}</Text> : null}
+                  {order.agricultural_shipment.loading_notes ? <Text style={s.jobNote}>Loading: {order.agricultural_shipment.loading_notes}</Text> : null}
+                </View>
+              ) : null}
+              {providerMode && order?.agricultural_shipment && (currentStatus === 'assigned' || currentStatus === 'picked_up') ? (
+                <View style={s.proofCard}>
+                  <Text style={s.jobTitle}>{currentStatus === 'assigned' ? 'Record pickup proof' : 'Record delivery proof'}</Text>
+                  <TextInput value={evidenceURL} onChangeText={setEvidenceURL} placeholder="Uploaded evidence URL" autoCapitalize="none" style={s.input} />
+                  {currentStatus === 'picked_up' ? <TextInput value={recipientName} onChangeText={setRecipientName} placeholder="Recipient name" style={s.input} /> : null}
+                  <Pressable disabled={savingProof || !evidenceURL || (currentStatus === 'picked_up' && !recipientName)} style={s.proofButton} onPress={async()=>{if(!order)return;setSavingProof(true);setError(undefined);try{const updated=await api.recordProof(order.id,currentStatus==='assigned'?'pickup':'delivery',{evidence_url:evidenceURL,recipient_name:recipientName,coordinate:currentStatus==='assigned'?order.pickup:order.dropoff});setData(current=>({...current,status:updated.status}));setEvidenceURL('');setRecipientName('');}catch(e){setError(e instanceof Error?e.message:'Could not save proof');}finally{setSavingProof(false)}}}>
+                    <Text style={s.proofButtonText}>{savingProof ? 'Saving…' : currentStatus === 'assigned' ? 'Confirm pickup' : 'Confirm delivery'}</Text>
+                  </Pressable>
+                </View>
+              ) : null}
             </View>
           </>
         )}
@@ -187,4 +212,12 @@ const s = StyleSheet.create({
   riderName: { fontSize: 14, fontWeight: '900', color: colors.ink },
   riderMeta: { fontSize: 10, color: colors.muted, marginTop: 4 },
   dropoff: { fontSize: 12, color: colors.muted, padding: 15 },
+  jobCard: { backgroundColor: '#EEF6EC', borderRadius: radius.md, padding: 14, gap: 5 },
+  proofCard: { backgroundColor: 'white', borderRadius: radius.md, padding: 14, marginTop: 10, gap: 9 },
+  jobTitle: { fontSize: 13, fontWeight: '900', color: colors.ink },
+  jobLine: { fontSize: 12, color: colors.ink },
+  jobNote: { fontSize: 11, color: colors.muted },
+  input: { borderWidth: 1, borderColor: colors.line, borderRadius: 12, paddingHorizontal: 12, height: 44, color: colors.ink },
+  proofButton: { backgroundColor: colors.greenDark, borderRadius: 12, minHeight: 44, alignItems: 'center', justifyContent: 'center' },
+  proofButtonText: { color: 'white', fontWeight: '900' },
 });

@@ -163,6 +163,7 @@ export default function App() {
           <TrackingModal
             order={trackingOrder}
             demoMode={demoMode}
+            providerMode={user.role === 'driver' || user.role === 'provider'}
             onClose={() => setTrackingOrder(undefined)}
           />
         </SafeAreaView>

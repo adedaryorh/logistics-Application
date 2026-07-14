@@ -16,25 +16,31 @@ import (
 	"github.com/adedaryorh/logistics-platform/pkg/observability"
 	"github.com/adedaryorh/logistics-platform/services/logistics-service/internal/application/dispatch"
 	"github.com/adedaryorh/logistics-platform/services/logistics-service/internal/model"
+	"github.com/adedaryorh/logistics-platform/services/logistics-service/internal/persistence"
 	logisticstemporal "github.com/adedaryorh/logistics-platform/services/logistics-service/internal/temporal"
 )
 
 type Service struct {
 	cfg         *platformconfig.Config
 	coordinator *logisticstemporal.Coordinator
+	store       persistence.Store
 
-	mu               sync.RWMutex
-	orders           map[string]*model.Order
-	orderIDs         []string
-	orderHistory     map[string][]model.OrderStatusHistory
-	orderAssignments map[string][]model.Assignment
-	drivers          map[string]*model.Driver
-	driversByUserID  map[string]string
-	merchants        map[string]*model.Merchant
-	menuItems        map[string][]model.MenuItem
-	ratings          map[string][]model.Rating
-	outboxEvents     []model.OutboxEvent
-	watchers         map[string]map[chan model.Order]struct{}
+	mu                    sync.RWMutex
+	agriculturalBookingMu sync.Mutex
+	orders                map[string]*model.Order
+	orderIDs              []string
+	orderHistory          map[string][]model.OrderStatusHistory
+	orderAssignments      map[string][]model.Assignment
+	drivers               map[string]*model.Driver
+	driversByUserID       map[string]string
+	merchants             map[string]*model.Merchant
+	menuItems             map[string][]model.MenuItem
+	ratings               map[string][]model.Rating
+	outboxEvents          []model.OutboxEvent
+	watchers              map[string]map[chan model.Order]struct{}
+	agriculturalQuotes    map[string]*model.AgriculturalQuote
+	quoteIdempotency      map[string]string
+	bookingIdempotency    map[string]string
 }
 
 type CreateOrderInput struct {
@@ -113,22 +119,34 @@ type RatingInput struct {
 }
 
 func New(cfg *platformconfig.Config) *Service {
+	var store persistence.Store = persistence.MemoryStore{}
+	if cfg != nil && (cfg.Database.PersistenceMode == "sql" || cfg.Server.Environment == "production") {
+		sqlStore, err := persistence.NewSQLStore(persistence.DSN(cfg.Database.Host, cfg.Database.Port, cfg.Database.User, cfg.Database.Password, cfg.Database.DBName, cfg.Database.SSLMode))
+		if err != nil {
+			panic(fmt.Sprintf("initialize logistics SQL persistence: %v", err))
+		}
+		store = sqlStore
+	}
 	return &Service{
-		cfg:              cfg,
-		coordinator:      logisticstemporal.NewCoordinator(),
-		orders:           map[string]*model.Order{},
-		orderIDs:         []string{},
-		orderHistory:     map[string][]model.OrderStatusHistory{},
-		orderAssignments: map[string][]model.Assignment{},
-		drivers:          map[string]*model.Driver{},
-		driversByUserID:  map[string]string{},
-		merchants:        map[string]*model.Merchant{},
-		menuItems:        map[string][]model.MenuItem{},
-		ratings:          map[string][]model.Rating{},
-		outboxEvents:     []model.OutboxEvent{},
-		watchers:         map[string]map[chan model.Order]struct{}{},
+		cfg:                cfg,
+		store:              store,
+		coordinator:        logisticstemporal.NewCoordinator(),
+		orders:             map[string]*model.Order{},
+		orderIDs:           []string{},
+		orderHistory:       map[string][]model.OrderStatusHistory{},
+		orderAssignments:   map[string][]model.Assignment{},
+		drivers:            map[string]*model.Driver{},
+		driversByUserID:    map[string]string{},
+		merchants:          map[string]*model.Merchant{},
+		menuItems:          map[string][]model.MenuItem{},
+		ratings:            map[string][]model.Rating{},
+		outboxEvents:       []model.OutboxEvent{},
+		watchers:           map[string]map[chan model.Order]struct{}{},
+		agriculturalQuotes: map[string]*model.AgriculturalQuote{}, quoteIdempotency: map[string]string{}, bookingIdempotency: map[string]string{},
 	}
 }
+
+func (s *Service) Ready(ctx context.Context) error { return s.store.Ping(ctx) }
 
 func (s *Service) CreateOrder(ctx context.Context, input CreateOrderInput) (*model.Order, error) {
 	if input.CustomerID == "" || input.IdempotencyKey == "" {
@@ -291,6 +309,9 @@ func (s *Service) CancelOrder(ctx context.Context, input CancelOrderInput) (*mod
 	observability.IncCounter("orders_cancelled_total", 1, map[string]string{"reason": input.Reason})
 
 	orderCopy := *order
+	if orderCopy.AgriculturalShipment != nil {
+		s.sendAgriculturalStatus(&orderCopy, "agricultural.delivery.cancelled")
+	}
 	return &orderCopy, nil
 }
 
@@ -480,6 +501,9 @@ func (s *Service) RespondToAssignment(ctx context.Context, input AssignmentRespo
 					"order_id":  order.ID,
 					"driver_id": driverID,
 				})
+				if order.AgriculturalShipment != nil {
+					s.sendAgriculturalStatus(order, "agricultural.delivery.assigned")
+				}
 			} else {
 				assignments[idx].Status = model.AssignmentStatusRejected
 			}
@@ -649,7 +673,7 @@ func (s *Service) CreateRating(ctx context.Context, input RatingInput) (*model.R
 
 func validOrderType(value string) bool {
 	switch value {
-	case string(model.OrderTypeRide), string(model.OrderTypeFood), string(model.OrderTypeParcel):
+	case string(model.OrderTypeRide), string(model.OrderTypeFood), string(model.OrderTypeParcel), string(model.OrderTypeAgricultural):
 		return true
 	default:
 		return false
