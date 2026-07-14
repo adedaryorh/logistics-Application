@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
+import * as Location from 'expo-location';
 import { api } from '../api';
 import { IconButton } from '../components/AppUI';
 import { CreateOrderInput, DeliveryType, Order } from '../types';
@@ -34,12 +35,38 @@ export function BookingModal({
   const [pickup, setPickup] = useState('Current location');
   const [dropoff, setDropoff] = useState('');
   const [loading, setLoading] = useState(false);
+  const [pickupCoordinate, setPickupCoordinate] = useState({ lat: 6.4474, lng: 3.4723 });
   useEffect(() => setType(initialType), [initialType]);
+  const useCurrentLocation = async () => {
+    const permission = await Location.requestForegroundPermissionsAsync();
+    if (permission.status !== 'granted') {
+      Alert.alert('Location needed', 'Allow location access to use your current pickup.');
+      return;
+    }
+    const current = await Location.getCurrentPositionAsync({
+      accuracy: Location.Accuracy.Balanced,
+    });
+    const coordinate = { lat: current.coords.latitude, lng: current.coords.longitude };
+    setPickupCoordinate(coordinate);
+    const [place] = await Location.reverseGeocodeAsync({
+      latitude: coordinate.lat,
+      longitude: coordinate.lng,
+    });
+    setPickup(
+      [place?.name, place?.street, place?.city].filter(Boolean).join(', ') || 'Current location',
+    );
+  };
   const submit = async () => {
+    const matches = await Location.geocodeAsync(dropoff).catch(() => []);
+    const destination = matches[0];
     const input: CreateOrderInput = {
       type,
-      pickup: { lat: 6.4474, lng: 3.4723, address: pickup },
-      dropoff: { lat: 6.4281, lng: 3.4219, address: dropoff },
+      pickup: { ...pickupCoordinate, address: pickup },
+      dropoff: {
+        lat: destination?.latitude ?? 6.4281,
+        lng: destination?.longitude ?? 3.4219,
+        address: dropoff,
+      },
       items: [],
       idempotency_key: `mobile-${Date.now()}`,
     };
@@ -92,7 +119,12 @@ export function BookingModal({
           </View>
           <View style={s.address}>
             <Text style={s.label}>PICKUP</Text>
-            <TextInput value={pickup} onChangeText={setPickup} style={s.input} />
+            <View style={s.inputRow}>
+              <TextInput value={pickup} onChangeText={setPickup} style={[s.input, s.flex]} />
+              <Pressable onPress={useCurrentLocation}>
+                <Ionicons name="locate" size={20} color={colors.greenDark} />
+              </Pressable>
+            </View>
             <View style={s.divider} />
             <Text style={s.label}>DROPOFF</Text>
             <TextInput
@@ -164,6 +196,8 @@ const s = StyleSheet.create({
   },
   label: { fontSize: 9, fontWeight: '800', letterSpacing: 1.2, color: colors.muted },
   input: { fontSize: 15, fontWeight: '700', color: colors.ink, paddingVertical: 9 },
+  inputRow: { flexDirection: 'row', alignItems: 'center' },
+  flex: { flex: 1 },
   divider: { height: 1, backgroundColor: colors.line, marginVertical: 6 },
   button: {
     height: 55,

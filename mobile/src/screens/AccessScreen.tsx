@@ -22,11 +22,12 @@ export function AccessScreen({
   onAuthenticated: () => void;
   onDemo: () => void;
 }) {
+  const [mode, setMode] = useState<'login' | 'register' | 'reset'>('login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
-  const signIn = async () => {
-    if (!email.trim() || password.length < 8) {
+  const submit = async () => {
+    if (!email.trim() || (mode !== 'reset' && password.length < 8)) {
       Alert.alert(
         'Check your details',
         'Enter a valid email and a password of at least 8 characters.',
@@ -35,11 +36,21 @@ export function AccessScreen({
     }
     try {
       setLoading(true);
+      if (mode === 'reset') {
+        await api.requestPasswordReset(email.trim());
+        Alert.alert(
+          'Check your email',
+          'If the account exists, password reset instructions are on the way.',
+        );
+        setMode('login');
+        return;
+      }
+      if (mode === 'register') await api.register(email.trim(), password);
       await api.login(email.trim(), password);
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       onAuthenticated();
     } catch (e) {
-      Alert.alert('Could not sign in', e instanceof Error ? e.message : 'Please try again.');
+      Alert.alert('Could not continue', e instanceof Error ? e.message : 'Please try again.');
     } finally {
       setLoading(false);
     }
@@ -60,30 +71,69 @@ export function AccessScreen({
         </View>
       </LinearGradient>
       <View style={s.panel}>
-        <Text style={s.panelTitle}>Welcome back</Text>
-        <Text style={s.panelCopy}>Sign in to keep things moving.</Text>
+        <Text style={s.panelTitle}>
+          {mode === 'login'
+            ? 'Welcome back'
+            : mode === 'register'
+              ? 'Create your account'
+              : 'Reset password'}
+        </Text>
+        <Text style={s.panelCopy}>
+          {mode === 'reset'
+            ? 'We’ll email you a secure reset link.'
+            : mode === 'register'
+              ? 'A few details and you’re ready to move.'
+              : 'Sign in to keep things moving.'}
+        </Text>
         <Field
           icon="mail-outline"
           value={email}
           onChangeText={setEmail}
           placeholder="Email address"
         />
-        <Field
-          icon="lock-closed-outline"
-          value={password}
-          onChangeText={setPassword}
-          placeholder="Password"
-          secure
-        />
-        <Pressable onPress={signIn} disabled={loading} style={s.button}>
+        {mode !== 'reset' ? (
+          <Field
+            icon="lock-closed-outline"
+            value={password}
+            onChangeText={setPassword}
+            placeholder="Password"
+            secure
+          />
+        ) : null}
+        {mode === 'login' ? (
+          <Pressable onPress={() => setMode('reset')}>
+            <Text style={s.forgot}>Forgot password?</Text>
+          </Pressable>
+        ) : null}
+        <Pressable onPress={submit} disabled={loading} style={s.button}>
           {loading ? (
             <ActivityIndicator color="white" />
           ) : (
             <>
-              <Text style={s.buttonText}>Sign in</Text>
+              <Text style={s.buttonText}>
+                {mode === 'login'
+                  ? 'Sign in'
+                  : mode === 'register'
+                    ? 'Create account'
+                    : 'Send reset link'}
+              </Text>
               <Ionicons name="arrow-forward" size={20} color="white" />
             </>
           )}
+        </Pressable>
+        <Pressable
+          onPress={() =>
+            setMode(mode === 'register' ? 'login' : mode === 'login' ? 'register' : 'login')
+          }
+          style={s.switchMode}
+        >
+          <Text style={s.switchText}>
+            {mode === 'register'
+              ? 'Already have an account? Sign in'
+              : mode === 'login'
+                ? 'New here? Create an account'
+                : 'Back to sign in'}
+          </Text>
         </Pressable>
         <Pressable onPress={onDemo} style={s.demo}>
           <Text style={s.demoText}>Explore the demo</Text>
@@ -183,6 +233,15 @@ const s = StyleSheet.create({
     marginTop: 4,
   },
   buttonText: { fontSize: 15, fontWeight: '900', color: 'white' },
+  forgot: {
+    alignSelf: 'flex-end',
+    fontSize: 11,
+    fontWeight: '700',
+    color: colors.greenDark,
+    marginBottom: 9,
+  },
+  switchMode: { alignItems: 'center', paddingTop: 13 },
+  switchText: { fontSize: 12, fontWeight: '700', color: colors.ink },
   demo: { alignItems: 'center', paddingVertical: 14 },
   demoText: { fontSize: 13, fontWeight: '800', color: colors.greenDark },
   legal: { fontSize: 10, color: '#909A95', textAlign: 'center' },

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Pressable, SafeAreaView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, SafeAreaView, StyleSheet, Text, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
@@ -7,6 +7,8 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { api } from './src/api';
 import { demoUser } from './src/data/demo';
 import { useOrders } from './src/hooks/useOrders';
+import { useNotifications } from './src/hooks/useNotifications';
+import { useWallet } from './src/hooks/useWallet';
 import { AccessScreen } from './src/screens/AccessScreen';
 import { BookingModal } from './src/screens/BookingModal';
 import { HomeScreen } from './src/screens/HomeScreen';
@@ -31,12 +33,22 @@ const tabs: {
 
 export default function App() {
   const [entered, setEntered] = useState(false);
+  const [restoring, setRestoring] = useState(true);
   const [demoMode, setDemoMode] = useState(false);
   const [user, setUser] = useState<User>(demoUser);
   const [tab, setTab] = useState<Tab>('home');
   const [bookingType, setBookingType] = useState<DeliveryType>();
   const [trackingOrder, setTrackingOrder] = useState<Order>();
   const { orders, loading, error, refresh, setOrders } = useOrders(demoMode || !entered);
+  const walletState = useWallet(entered, demoMode);
+  useNotifications(entered && !demoMode);
+
+  useEffect(() => {
+    api
+      .hasSession()
+      .then((hasSession) => setEntered(hasSession))
+      .finally(() => setRestoring(false));
+  }, []);
 
   useEffect(() => {
     if (!entered || demoMode) return;
@@ -67,9 +79,18 @@ export default function App() {
           onBook={() => setBookingType('parcel')}
         />
       );
-    if (tab === 'wallet') return <WalletScreen />;
+    if (tab === 'wallet')
+      return (
+        <WalletScreen
+          wallet={walletState.wallet}
+          ledger={walletState.ledger}
+          loading={walletState.loading}
+          error={walletState.error}
+          onRefresh={walletState.refresh}
+        />
+      );
     return <ProfileScreen user={user} demoMode={demoMode} onLogout={logout} />;
-  }, [tab, user, orders, loading, error, refresh, demoMode]);
+  }, [tab, user, orders, loading, error, refresh, demoMode, walletState]);
 
   function enterDemo() {
     setDemoMode(true);
@@ -92,6 +113,14 @@ export default function App() {
     setTrackingOrder(order);
   }
 
+  if (restoring)
+    return (
+      <SafeAreaProvider>
+        <View style={s.restoring}>
+          <ActivityIndicator size="large" color={colors.green} />
+        </View>
+      </SafeAreaProvider>
+    );
   return (
     <SafeAreaProvider>
       {!entered ? (
@@ -143,6 +172,12 @@ export default function App() {
 }
 
 const s = StyleSheet.create({
+  restoring: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.canvas,
+  },
   app: { flex: 1, backgroundColor: colors.canvas },
   tabs: {
     position: 'absolute',

@@ -537,6 +537,24 @@ func (s *Service) ListAuditRecords(ctx context.Context) []AuditRecord {
 	return append([]AuditRecord(nil), s.audits...)
 }
 
+func (s *Service) GetWallet(ctx context.Context, userID string) (*WalletBalance, []WalletLedgerEntry, error) {
+	if userID == "" {
+		return nil, nil, platformerrors.ErrUnauthorized
+	}
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	wallet, ok := s.wallets[userID]
+	if !ok {
+		return &WalletBalance{UserID: userID, Currency: defaultCurrency("")}, []WalletLedgerEntry{}, nil
+	}
+	walletCopy := *wallet
+	ledger := append([]WalletLedgerEntry(nil), s.walletLedger[userID]...)
+	for left, right := 0, len(ledger)-1; left < right; left, right = left+1, right-1 {
+		ledger[left], ledger[right] = ledger[right], ledger[left]
+	}
+	return &walletCopy, ledger, nil
+}
+
 func (s *Service) ensureWalletLocked(userID, currency string) *WalletBalance {
 	wallet, ok := s.wallets[userID]
 	if !ok {

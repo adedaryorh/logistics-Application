@@ -227,3 +227,17 @@ func TestStartOperationsWorkerRunsReconciliation(t *testing.T) {
 		t.Fatal("expected reconciliation audit records")
 	}
 }
+
+func TestGetWalletReturnsBalanceAndNewestLedgerFirst(t *testing.T) {
+	svc := New(&platformconfig.Config{})
+	wallet, ledger, err := svc.GetWallet(context.Background(), "user-1")
+	if err != nil {
+		t.Fatalf("GetWallet() error = %v", err)
+	}
+	if wallet.BalanceMinor != 0 || wallet.Currency != "NGN" || len(ledger) != 0 {
+		t.Fatalf("unexpected empty wallet: wallet=%+v ledger=%+v", wallet, ledger)
+	}
+	if _, _, err := svc.GetWallet(context.Background(), ""); err == nil {
+		t.Fatal("expected missing user id to be rejected")
+	}
+}

@@ -31,6 +31,14 @@ export type Tracking = {
   eta_minutes?: number;
   driver?: { full_name?: string; phone?: string; rating?: number };
 };
+export type Wallet = { user_id: string; balance_minor: number; currency: string };
+export type WalletEntry = {
+  id: string;
+  type: 'credit' | 'debit';
+  amount_minor: number;
+  description?: string;
+  created_at: string;
+};
 export type CreateOrderInput = {
   type: DeliveryType;
   pickup: Coordinate;

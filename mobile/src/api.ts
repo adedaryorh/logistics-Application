@@ -1,8 +1,10 @@
 import * as SecureStore from 'expo-secure-store';
-import { CreateOrderInput, Order, Tracking, User } from './types';
+import EventSource from 'react-native-sse';
+import { CreateOrderInput, Order, Tracking, User, Wallet, WalletEntry } from './types';
 
 const API_URL = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:8080';
 const TOKEN_KEY = 'logistics_access_token';
+const REFRESH_KEY = 'logistics_refresh_token';
 
 type Envelope<T> = {
   success: boolean;
@@ -38,10 +40,22 @@ export const api = {
       body: JSON.stringify({ email, password, device_id: 'mobile' }),
     });
     await SecureStore.setItemAsync(TOKEN_KEY, data.tokens.access_token);
+    await SecureStore.setItemAsync(REFRESH_KEY, data.tokens.refresh_token);
     return data;
   },
-  register: (email: string, password: string) =>
-    request('/api/v1/auth/register', { method: 'POST', body: JSON.stringify({ email, password }) }),
+  register: async (email: string, password: string) =>
+    (
+      await request<{ user: User }>('/api/v1/auth/register', {
+        method: 'POST',
+        body: JSON.stringify({ email, password }),
+      })
+    ).user,
+  requestPasswordReset: (email: string) =>
+    request('/api/v1/auth/password/reset-request', {
+      method: 'POST',
+      body: JSON.stringify({ email }),
+    }),
+  hasSession: async () => Boolean(await SecureStore.getItemAsync(TOKEN_KEY)),
   me: async () => (await request<{ user: User }>('/api/v1/users/me')).user,
   orders: async () => (await request<{ orders: Order[]; next?: string }>('/api/v1/orders')).orders,
   order: async (id: string) => (await request<{ order: Order }>(`/api/v1/orders/${id}`)).order,
@@ -51,6 +65,26 @@ export const api = {
     const order = (await request<{ order: Order }>(`/api/v1/orders/${id}`)).order;
     return { order_id: order.id, status: order.status };
   },
+  async subscribeToOrder(
+    id: string,
+    onUpdate: (tracking: Tracking) => void,
+    onError: (message: string) => void,
+  ) {
+    const token = await SecureStore.getItemAsync(TOKEN_KEY);
+    const source = new EventSource<'order.status'>(`${API_URL}/api/v1/orders/${id}/track`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    });
+    source.addEventListener('order.status', (event) => {
+      try {
+        onUpdate(JSON.parse(event.data ?? '{}') as Tracking);
+      } catch {
+        onError('Received an invalid tracking update.');
+      }
+    });
+    source.addEventListener('error', () => onError('Live updates disconnected. Retrying…'));
+    return () => source.close();
+  },
+  wallet: () => request<{ wallet: Wallet; ledger: WalletEntry[] }>('/api/v1/payments/wallet/me'),
   createOrder: async (payload: CreateOrderInput) =>
     (
       await request<{ order: Order }>('/api/v1/orders', {
@@ -60,5 +94,6 @@ export const api = {
     ).order,
   async logout() {
     await SecureStore.deleteItemAsync(TOKEN_KEY);
+    await SecureStore.deleteItemAsync(REFRESH_KEY);
   },
 };

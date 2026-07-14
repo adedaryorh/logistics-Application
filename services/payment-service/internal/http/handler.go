@@ -74,6 +74,7 @@ func (a *App) RegisterRoutes(router *gin.Engine) {
 	v1 := router.Group("/api/v1")
 	v1.POST("/payments/initialize", handler.initializePayment)
 	v1.GET("/payments/:id", handler.getPayment)
+	v1.GET("/payments/wallet/me", handler.getWallet)
 	v1.POST("/payments/:id/refund", handler.refundPayment)
 	v1.POST("/webhooks/flutterwave", handler.webhook("flutterwave"))
 	v1.POST("/webhooks/paystack", handler.webhook("paystack"))
@@ -178,6 +179,15 @@ func (h *Handler) getPayment(c *gin.Context) {
 		return
 	}
 	writeSuccess(c, nethttp.StatusOK, gin.H{"payment": tx})
+}
+
+func (h *Handler) getWallet(c *gin.Context) {
+	wallet, ledger, err := h.service.GetWallet(c.Request.Context(), c.GetHeader("X-User-ID"))
+	if err != nil {
+		writeServiceError(c, err)
+		return
+	}
+	writeSuccess(c, nethttp.StatusOK, gin.H{"wallet": wallet, "ledger": ledger})
 }
 
 func (h *Handler) refundPayment(c *gin.Context) {

@@ -3,8 +3,21 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { IconButton, SectionTitle, page } from '../components/AppUI';
 import { colors, radius, shadow } from '../theme';
+import { Wallet, WalletEntry } from '../types';
 
-export function WalletScreen() {
+export function WalletScreen({
+  wallet,
+  ledger,
+  loading,
+  error,
+  onRefresh,
+}: {
+  wallet: Wallet;
+  ledger: WalletEntry[];
+  loading: boolean;
+  error?: string;
+  onRefresh: () => void;
+}) {
   return (
     <ScrollView contentContainerStyle={page.content}>
       <View style={page.header}>
@@ -14,7 +27,11 @@ export function WalletScreen() {
       <LinearGradient colors={['#183F46', '#0B7560']} style={s.card}>
         <Text style={s.label}>AVAILABLE BALANCE</Text>
         <Text style={s.balance}>
-          ₦24,600<Text style={s.kobo}>.00</Text>
+          {new Intl.NumberFormat('en-NG', {
+            style: 'currency',
+            currency: wallet.currency,
+            maximumFractionDigits: 0,
+          }).format(wallet.balance_minor / 100)}
         </Text>
         <Text style={s.hint}>Logistics wallet</Text>
       </LinearGradient>
@@ -37,8 +54,21 @@ export function WalletScreen() {
       <SectionTitle title="Recent activity" />
       <View style={s.empty}>
         <Ionicons name="receipt-outline" size={28} color={colors.muted} />
-        <Text style={s.emptyTitle}>No wallet activity</Text>
-        <Text style={s.emptyCopy}>Payments and refunds will appear here.</Text>
+        <Text style={s.emptyTitle}>
+          {loading
+            ? 'Loading wallet…'
+            : error
+              ? 'Wallet unavailable'
+              : ledger.length
+                ? `${ledger.length} recent transaction${ledger.length === 1 ? '' : 's'}`
+                : 'No wallet activity'}
+        </Text>
+        <Text style={s.emptyCopy}>{error ?? 'Payments and refunds will appear here.'}</Text>
+        {error ? (
+          <Pressable onPress={onRefresh}>
+            <Text style={s.retry}>Try again</Text>
+          </Pressable>
+        ) : null}
       </View>
     </ScrollView>
   );
@@ -70,4 +100,5 @@ const s = StyleSheet.create({
   },
   emptyTitle: { fontSize: 15, fontWeight: '800', color: colors.ink, marginTop: 9 },
   emptyCopy: { fontSize: 11, color: colors.muted, marginTop: 4 },
+  retry: { fontSize: 12, fontWeight: '800', color: colors.greenDark, marginTop: 10 },
 });

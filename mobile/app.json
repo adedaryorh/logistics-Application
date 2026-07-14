@@ -9,7 +9,10 @@
     "scheme": "logistics",
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.logistics.platform"
+      "bundleIdentifier": "com.logistics.platform",
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "Logistics uses your location to set pickup points and track deliveries."
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -19,14 +22,17 @@
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false,
-      "package": "com.logistics.platform"
+      "package": "com.logistics.platform",
+      "permissions": ["ACCESS_COARSE_LOCATION", "ACCESS_FINE_LOCATION", "POST_NOTIFICATIONS"]
     },
     "web": {
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
       "expo-secure-store",
-      "expo-font"
+      "expo-font",
+      ["expo-location", { "locationWhenInUsePermission": "Allow Logistics to use your location for pickup and delivery tracking." }],
+      ["expo-notifications", { "color": "#19A974" }]
     ]
   }
 }

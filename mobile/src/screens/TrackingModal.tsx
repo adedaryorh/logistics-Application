@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Modal, SafeAreaView, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import MapView, { Marker } from 'react-native-maps';
 import { api } from '../api';
 import { demoTracking } from '../data/demo';
 import { IconButton, Progress, StateCard } from '../components/AppUI';
@@ -26,11 +27,26 @@ export function TrackingModal({
       return;
     }
     setLoading(true);
+    let close: undefined | (() => void);
     api
       .track(order.id)
       .then(setData)
+      .then(() =>
+        api.subscribeToOrder(
+          order.id,
+          (update) => {
+            setData((current) => ({ ...current, ...update }));
+            setError(undefined);
+          },
+          setError,
+        ),
+      )
+      .then((stop) => {
+        close = stop;
+      })
       .catch((e) => setError(e instanceof Error ? e.message : 'Tracking unavailable'))
       .finally(() => setLoading(false));
+    return () => close?.();
   }, [order, demoMode]);
   return (
     <Modal visible={!!order} animationType="slide" onRequestClose={onClose}>
@@ -49,11 +65,29 @@ export function TrackingModal({
         ) : (
           <>
             <View style={s.map}>
-              <View style={s.road} />
-              <View style={s.roadTwo} />
-              <View style={s.pin}>
-                <Ionicons name="bicycle" size={23} color="white" />
-              </View>
+              <MapView
+                style={StyleSheet.absoluteFill}
+                initialRegion={{
+                  latitude: order?.pickup.lat ?? 6.4474,
+                  longitude: order?.pickup.lng ?? 3.4723,
+                  latitudeDelta: 0.08,
+                  longitudeDelta: 0.08,
+                }}
+              >
+                {order ? (
+                  <>
+                    <Marker
+                      coordinate={{ latitude: order.pickup.lat, longitude: order.pickup.lng }}
+                      title="Pickup"
+                    />
+                    <Marker
+                      coordinate={{ latitude: order.dropoff.lat, longitude: order.dropoff.lng }}
+                      title="Dropoff"
+                      pinColor={colors.greenDark}
+                    />
+                  </>
+                ) : null}
+              </MapView>
               <View style={s.eta}>
                 <Text style={s.etaValue}>{data?.eta_minutes ?? 12} min</Text>
                 <Text style={s.etaCopy}>3.2 km away</Text>
@@ -98,38 +132,6 @@ const s = StyleSheet.create({
   headerTitle: { fontSize: 14, fontWeight: '800', color: colors.ink },
   error: { flex: 1, justifyContent: 'center', padding: 20 },
   map: { flex: 1, backgroundColor: '#DCE8DF', overflow: 'hidden' },
-  road: {
-    position: 'absolute',
-    width: '140%',
-    height: 26,
-    backgroundColor: '#F8F7F1',
-    top: '38%',
-    left: '-20%',
-    transform: [{ rotate: '-12deg' }],
-  },
-  roadTwo: {
-    position: 'absolute',
-    width: 24,
-    height: '130%',
-    backgroundColor: '#F8F7F1',
-    top: '-15%',
-    left: '33%',
-    transform: [{ rotate: '16deg' }],
-  },
-  pin: {
-    position: 'absolute',
-    left: '43%',
-    top: '42%',
-    width: 52,
-    height: 52,
-    borderRadius: 26,
-    backgroundColor: colors.green,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 4,
-    borderColor: 'white',
-    ...shadow,
-  },
   eta: {
     position: 'absolute',
     left: 20,
