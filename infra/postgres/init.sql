@@ -31,6 +31,17 @@ GRANT ALL ON SCHEMA mobility_ TO mobility_user;
 GRANT ALL ON SCHEMA payment_ TO payment_user;
 GRANT ALL ON SCHEMA operations_ TO operations_user;
 
+ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA identity_ GRANT ALL ON TABLES TO identity_user;
+ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA identity_ GRANT ALL ON SEQUENCES TO identity_user;
+ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA logistics_ GRANT ALL ON TABLES TO logistics_user;
+ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA logistics_ GRANT ALL ON SEQUENCES TO logistics_user;
+ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA mobility_ GRANT ALL ON TABLES TO mobility_user;
+ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA mobility_ GRANT ALL ON SEQUENCES TO mobility_user;
+ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA payment_ GRANT ALL ON TABLES TO payment_user;
+ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA payment_ GRANT ALL ON SEQUENCES TO payment_user;
+ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA operations_ GRANT ALL ON TABLES TO operations_user;
+ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA operations_ GRANT ALL ON SEQUENCES TO operations_user;
+
 ALTER USER identity_user SET search_path = identity_;
 ALTER USER logistics_user SET search_path = logistics_;
 ALTER USER mobility_user SET search_path = mobility_;

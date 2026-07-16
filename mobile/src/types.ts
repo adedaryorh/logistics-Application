@@ -50,7 +50,7 @@ export type DeliveryProof = {
   captured_at: string;
 };
 
-export type User = { id: string; email: string; phone?: string; role?: string };
+export type User = { id: string; full_name: string; email: string; phone?: string; role?: string };
 export type Tracking = {
   order_id?: string;
   status?: OrderStatus;

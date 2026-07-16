@@ -7,6 +7,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"encoding/pem"
+	"strings"
 	"testing"
 	"time"
 
@@ -36,6 +37,26 @@ func TestValidateTokenWithOptions(t *testing.T) {
 	}
 	if _, err := ValidateTokenWithOptions(token, ValidationOptions{ExpectedIssuer: "wrong"}); err == nil {
 		t.Fatal("expected issuer mismatch")
+	}
+}
+
+func TestManagerFromEnvAcceptsIndentedPEM(t *testing.T) {
+	privateKey, publicKey, _ := testJWTManager(t)
+	privatePEM := pem.EncodeToMemory(&pem.Block{Type: "RSA PRIVATE KEY", Bytes: x509.MarshalPKCS1PrivateKey(privateKey)})
+	publicDER, err := x509.MarshalPKIXPublicKey(publicKey)
+	if err != nil {
+		t.Fatalf("MarshalPKIXPublicKey() error = %v", err)
+	}
+	publicPEM := pem.EncodeToMemory(&pem.Block{Type: "PUBLIC KEY", Bytes: publicDER})
+
+	indent := func(value []byte) string {
+		return "  " + strings.ReplaceAll(strings.TrimSpace(string(value)), "\n", "\n  ") + "\n"
+	}
+	t.Setenv("JWT_PRIVATE_KEY", indent(privatePEM))
+	t.Setenv("JWT_PUBLIC_KEY", indent(publicPEM))
+
+	if _, err := managerFromEnv(); err != nil {
+		t.Fatalf("managerFromEnv() error = %v", err)
 	}
 }
 

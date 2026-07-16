@@ -23,7 +23,11 @@
       },
       "predictiveBackGestureEnabled": false,
       "package": "com.logistics.platform",
-      "permissions": ["ACCESS_COARSE_LOCATION", "ACCESS_FINE_LOCATION", "POST_NOTIFICATIONS"]
+      "permissions": [
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_FINE_LOCATION",
+        "POST_NOTIFICATIONS"
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -31,8 +35,18 @@
     "plugins": [
       "expo-secure-store",
       "expo-font",
-      ["expo-location", { "locationWhenInUsePermission": "Allow Logistics to use your location for pickup and delivery tracking." }],
-      ["expo-notifications", { "color": "#19A974" }]
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Allow Logistics to use your location for pickup and delivery tracking."
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "color": "#19A974"
+        }
+      ]
     ]
   }
 }

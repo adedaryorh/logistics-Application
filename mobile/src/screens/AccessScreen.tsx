@@ -2,8 +2,11 @@ import { useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  KeyboardAvoidingView,
+  Platform,
   Pressable,
   SafeAreaView,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -23,14 +26,19 @@ export function AccessScreen({
   onDemo: () => void;
 }) {
   const [mode, setMode] = useState<'login' | 'register' | 'reset'>('login');
+  const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const submit = async () => {
-    if (!email.trim() || (mode !== 'reset' && password.length < 8)) {
+    if (
+      !email.trim() ||
+      (mode === 'register' && fullName.trim().length < 2) ||
+      (mode !== 'reset' && password.length < 8)
+    ) {
       Alert.alert(
         'Check your details',
-        'Enter a valid email and a password of at least 8 characters.',
+        'Enter your full name, a valid email, and a password of at least 8 characters.',
       );
       return;
     }
@@ -45,7 +53,7 @@ export function AccessScreen({
         setMode('login');
         return;
       }
-      if (mode === 'register') await api.register(email.trim(), password);
+      if (mode === 'register') await api.register(fullName.trim(), email.trim(), password);
       await api.login(email.trim(), password);
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       onAuthenticated();
@@ -57,7 +65,17 @@ export function AccessScreen({
   };
   return (
     <SafeAreaView style={s.page}>
-      <LinearGradient colors={['#123C43', '#087A61']} style={s.hero}>
+      <KeyboardAvoidingView
+        style={s.keyboardView}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      >
+        <ScrollView
+          contentContainerStyle={s.scrollContent}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
+          showsVerticalScrollIndicator={false}
+        >
+          <LinearGradient colors={['#123C43', '#087A61']} style={s.hero}>
         <View style={s.orb} />
         <View style={s.mark}>
           <Ionicons name="navigate" size={25} color={colors.ink} />
@@ -72,8 +90,8 @@ export function AccessScreen({
             proof.
           </Text>
         </View>
-      </LinearGradient>
-      <View style={s.panel}>
+          </LinearGradient>
+          <View style={s.panel}>
         <Text style={s.panelTitle}>
           {mode === 'login'
             ? 'Welcome back'
@@ -88,6 +106,14 @@ export function AccessScreen({
               ? 'Create your provider account to receive assigned work.'
               : 'Sign in to review and complete your delivery jobs.'}
         </Text>
+        {mode === 'register' ? (
+          <Field
+            icon="person-outline"
+            value={fullName}
+            onChangeText={setFullName}
+            placeholder="Full name"
+          />
+        ) : null}
         <Field
           icon="mail-outline"
           value={email}
@@ -173,7 +199,9 @@ export function AccessScreen({
           <Text style={s.demoText}>Explore the demo</Text>
         </Pressable>
         <Text style={s.legal}>By continuing, you agree to our Terms and Privacy Policy.</Text>
-      </View>
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
@@ -188,26 +216,51 @@ function Field({
   onChangeText: (v: string) => void;
   placeholder: string;
 }) {
+  const isEmail = icon === 'mail-outline';
+  const [passwordVisible, setPasswordVisible] = useState(false);
   return (
     <View style={s.field}>
       <Ionicons name={icon} size={19} color={colors.muted} />
       <TextInput
         {...props}
-        secureTextEntry={secure}
-        autoCapitalize="none"
+        secureTextEntry={secure && !passwordVisible}
+        autoCapitalize={isEmail || secure ? 'none' : 'words'}
         style={s.input}
         placeholderTextColor="#9AA39F"
         accessibilityLabel={props.placeholder}
-        accessibilityHint={secure ? 'Enter your secure password' : 'Enter your account email'}
-        autoComplete={secure ? 'current-password' : 'email'}
-        keyboardType={secure ? 'default' : 'email-address'}
+        accessibilityHint={
+          secure ? 'Enter your secure password' : isEmail ? 'Enter your account email' : 'Enter your full name'
+        }
+        autoComplete={secure ? 'current-password' : isEmail ? 'email' : 'name'}
+        keyboardType={isEmail ? 'email-address' : 'default'}
       />
+      {secure ? (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={passwordVisible ? 'Hide password' : 'Show password'}
+          accessibilityHint={
+            passwordVisible ? 'Hides the password characters' : 'Shows the password characters'
+          }
+          accessibilityState={{ selected: passwordVisible }}
+          hitSlop={8}
+          onPress={() => setPasswordVisible((visible) => !visible)}
+          style={({ pressed }) => [s.passwordToggle, pressed && s.passwordTogglePressed]}
+        >
+          <Ionicons
+            name={passwordVisible ? 'eye-off-outline' : 'eye-outline'}
+            size={21}
+            color={colors.muted}
+          />
+        </Pressable>
+      ) : null}
     </View>
   );
 }
 const s = StyleSheet.create({
   page: { flex: 1, backgroundColor: colors.canvas },
-  hero: { flex: 1, padding: 24, overflow: 'hidden' },
+  keyboardView: { flex: 1 },
+  scrollContent: { flexGrow: 1 },
+  hero: { minHeight: 390, flexGrow: 1, padding: 24, overflow: 'hidden' },
   orb: {
     position: 'absolute',
     width: 320,
@@ -260,6 +313,14 @@ const s = StyleSheet.create({
     marginBottom: 10,
   },
   input: { flex: 1, fontSize: 14, fontWeight: '600', color: colors.ink },
+  passwordToggle: {
+    width: 44,
+    height: 44,
+    marginRight: -10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  passwordTogglePressed: { opacity: 0.55 },
   button: {
     height: 55,
     backgroundColor: colors.green,

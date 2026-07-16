@@ -1,8 +1,18 @@
+import Constants from 'expo-constants';
 import * as SecureStore from 'expo-secure-store';
+import { Platform } from 'react-native';
 import EventSource from 'react-native-sse';
 import { CreateOrderInput, Order, Tracking, User, Wallet, WalletEntry } from './types';
 
-const API_URL = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:8080';
+const configuredAPIURL = process.env.EXPO_PUBLIC_API_URL?.trim();
+const expoHost = Constants.expoConfig?.hostUri?.split(':')[0];
+const developmentHost = expoHost ?? (Platform.OS === 'android' ? '10.0.2.2' : 'localhost');
+const API_URL = (
+  configuredAPIURL && configuredAPIURL !== 'auto'
+    ? configuredAPIURL
+    : `http://${developmentHost}:8080`
+).replace(/\/$/, '');
+const REQUEST_TIMEOUT_MS = 15_000;
 const TOKEN_KEY = 'logistics_access_token';
 const REFRESH_KEY = 'logistics_refresh_token';
 
@@ -14,20 +24,38 @@ type Envelope<T> = {
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const token = await SecureStore.getItemAsync(TOKEN_KEY);
-  const response = await fetch(`${API_URL}${path}`, {
-    ...init,
-    headers: {
-      Accept: 'application/json',
-      'Content-Type': 'application/json',
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      ...init?.headers,
-    },
-  });
-  const body = (await response.json()) as Envelope<T>;
-  if (!response.ok || !body.success) {
-    throw new Error(body.error?.message ?? 'Something went wrong. Please try again.');
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+  try {
+    const response = await fetch(`${API_URL}${path}`, {
+      ...init,
+      signal: controller.signal,
+      headers: {
+        Accept: 'application/json',
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        ...init?.headers,
+      },
+    });
+    const body = (await response.json()) as Envelope<T>;
+    if (!response.ok || !body.success) {
+      if (response.status === 409 && path === '/api/v1/auth/register') {
+        throw new Error('An account with this email already exists. Sign in instead.');
+      }
+      throw new Error(body.error?.message ?? 'Something went wrong. Please try again.');
+    }
+    return body.data;
+  } catch (error) {
+    if (error instanceof Error && error.name === 'AbortError') {
+      throw new Error(`The API at ${API_URL} did not respond. Check that the backend is running.`);
+    }
+    if (error instanceof TypeError) {
+      throw new Error(`Cannot reach the API at ${API_URL}. Check this device's network connection.`);
+    }
+    throw error;
+  } finally {
+    clearTimeout(timeout);
   }
-  return body.data;
 }
 
 export const api = {
@@ -43,11 +71,11 @@ export const api = {
     await SecureStore.setItemAsync(REFRESH_KEY, data.tokens.refresh_token);
     return data;
   },
-  register: async (email: string, password: string) =>
+  register: async (fullName: string, email: string, password: string) =>
     (
       await request<{ user: User }>('/api/v1/auth/register', {
         method: 'POST',
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ full_name: fullName, email, password }),
       })
     ).user,
   requestPasswordReset: (email: string) =>

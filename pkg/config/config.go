@@ -100,6 +100,7 @@ type SecurityConfig struct {
 	MTLSRequired                     bool     `mapstructure:"INTERNAL_MTLS_REQUIRED"`
 	MTLSClientHeader                 string   `mapstructure:"INTERNAL_MTLS_CLIENT_HEADER"`
 	RequireStrongSecrets             bool     `mapstructure:"REQUIRE_STRONG_SECRETS"`
+	AutoVerifyEmail                  bool     `mapstructure:"AUTO_VERIFY_EMAIL"`
 	AnomalyThreshold                 int      `mapstructure:"ANOMALY_THRESHOLD"`
 	AnomalyWindowSeconds             int      `mapstructure:"ANOMALY_WINDOW_SECONDS"`
 	FarmSenseServiceSecret           string   `mapstructure:"FARMSENSE_SERVICE_SECRET"`
@@ -197,6 +198,7 @@ func LoadConfig(configPath string) (*Config, error) {
 			MTLSRequired:                     v.GetBool("INTERNAL_MTLS_REQUIRED"),
 			MTLSClientHeader:                 v.GetString("INTERNAL_MTLS_CLIENT_HEADER"),
 			RequireStrongSecrets:             v.GetBool("REQUIRE_STRONG_SECRETS"),
+			AutoVerifyEmail:                  v.GetBool("AUTO_VERIFY_EMAIL"),
 			AnomalyThreshold:                 v.GetInt("ANOMALY_THRESHOLD"),
 			AnomalyWindowSeconds:             v.GetInt("ANOMALY_WINDOW_SECONDS"),
 			FarmSenseServiceSecret:           v.GetString("FARMSENSE_SERVICE_SECRET"),
@@ -278,6 +280,7 @@ func setDefaults(v *viper.Viper) {
 	v.SetDefault("INTERNAL_MTLS_REQUIRED", false)
 	v.SetDefault("INTERNAL_MTLS_CLIENT_HEADER", "X-Client-Cert-Verified")
 	v.SetDefault("REQUIRE_STRONG_SECRETS", false)
+	v.SetDefault("AUTO_VERIFY_EMAIL", false)
 	v.SetDefault("ANOMALY_THRESHOLD", 8)
 	v.SetDefault("ANOMALY_WINDOW_SECONDS", 300)
 }

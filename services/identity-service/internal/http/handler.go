@@ -34,6 +34,7 @@ type App struct {
 }
 
 type registerRequest struct {
+	FullName string `json:"full_name" validate:"required,min=2,max=120"`
 	Email    string `json:"email" validate:"required,email"`
 	Password string `json:"password" validate:"required,min=8"`
 }
@@ -183,6 +184,7 @@ func (h *Handler) register(c *gin.Context) {
 	}
 
 	user, err := h.authService.Register(c.Request.Context(), identityservice.RegisterInput{
+		FullName: req.FullName,
 		Email:    req.Email,
 		Password: req.Password,
 	})

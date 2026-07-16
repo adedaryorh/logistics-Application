@@ -49,7 +49,7 @@ func (s *Store) DB() *sql.DB {
 	return s.db
 }
 
-func (s *Store) CreateUser(ctx context.Context, email, passwordHash, role string, outboxPayload any) (*model.User, error) {
+func (s *Store) CreateUser(ctx context.Context, fullName, email, passwordHash, role string, outboxPayload any) (*model.User, error) {
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
 		return nil, fmt.Errorf("begin create user transaction: %w", err)
@@ -58,12 +58,13 @@ func (s *Store) CreateUser(ctx context.Context, email, passwordHash, role string
 
 	user := &model.User{}
 	query := `
-		INSERT INTO identity_.users (email, password_hash, role)
-		VALUES ($1, $2, $3)
-		RETURNING id, email, phone, password_hash, email_verified, phone_verified, role, status, created_at, updated_at, deleted_at
+		INSERT INTO identity_.users (full_name, email, password_hash, role)
+		VALUES ($1, $2, $3, $4)
+		RETURNING id, full_name, email, phone, password_hash, email_verified, phone_verified, role, status, created_at, updated_at, deleted_at
 	`
-	if err := tx.QueryRowContext(ctx, query, email, passwordHash, role).Scan(
+	if err := tx.QueryRowContext(ctx, query, fullName, email, passwordHash, role).Scan(
 		&user.ID,
+		&user.FullName,
 		&user.Email,
 		&user.Phone,
 		&user.PasswordHash,
@@ -121,12 +122,13 @@ func (s *Store) CreateUser(ctx context.Context, email, passwordHash, role string
 func (s *Store) GetUserByEmail(ctx context.Context, email string) (*model.User, error) {
 	user := &model.User{}
 	query := `
-		SELECT id, email, phone, password_hash, email_verified, phone_verified, role, status, created_at, updated_at, deleted_at
+		SELECT id, full_name, email, phone, password_hash, email_verified, phone_verified, role, status, created_at, updated_at, deleted_at
 		FROM identity_.users
 		WHERE email = $1 AND deleted_at IS NULL
 	`
 	if err := s.db.QueryRowContext(ctx, query, email).Scan(
 		&user.ID,
+		&user.FullName,
 		&user.Email,
 		&user.Phone,
 		&user.PasswordHash,
@@ -150,12 +152,13 @@ func (s *Store) GetUserByEmail(ctx context.Context, email string) (*model.User, 
 func (s *Store) GetUserByID(ctx context.Context, id string) (*model.User, error) {
 	user := &model.User{}
 	query := `
-		SELECT id, email, phone, password_hash, email_verified, phone_verified, role, status, created_at, updated_at, deleted_at
+		SELECT id, full_name, email, phone, password_hash, email_verified, phone_verified, role, status, created_at, updated_at, deleted_at
 		FROM identity_.users
 		WHERE id = $1 AND deleted_at IS NULL
 	`
 	if err := s.db.QueryRowContext(ctx, query, id).Scan(
 		&user.ID,
+		&user.FullName,
 		&user.Email,
 		&user.Phone,
 		&user.PasswordHash,
@@ -185,12 +188,13 @@ func (s *Store) UpsertOAuthUser(ctx context.Context, provider, providerUserID, e
 
 	user := &model.User{}
 	if err := tx.QueryRowContext(ctx, `
-		SELECT u.id, u.email, u.phone, u.password_hash, u.email_verified, u.phone_verified, u.role, u.status, u.created_at, u.updated_at, u.deleted_at
+		SELECT u.id, u.full_name, u.email, u.phone, u.password_hash, u.email_verified, u.phone_verified, u.role, u.status, u.created_at, u.updated_at, u.deleted_at
 		FROM identity_.oauth_accounts oa
 		JOIN identity_.users u ON u.id = oa.user_id
 		WHERE oa.provider = $1 AND oa.provider_user_id = $2 AND u.deleted_at IS NULL
 	`, provider, providerUserID).Scan(
 		&user.ID,
+		&user.FullName,
 		&user.Email,
 		&user.Phone,
 		&user.PasswordHash,
@@ -217,11 +221,12 @@ func (s *Store) UpsertOAuthUser(ctx context.Context, provider, providerUserID, e
 	}
 
 	if err := tx.QueryRowContext(ctx, `
-		SELECT id, email, phone, password_hash, email_verified, phone_verified, role, status, created_at, updated_at, deleted_at
+		SELECT id, full_name, email, phone, password_hash, email_verified, phone_verified, role, status, created_at, updated_at, deleted_at
 		FROM identity_.users
 		WHERE email = $1 AND deleted_at IS NULL
 	`, email).Scan(
 		&user.ID,
+		&user.FullName,
 		&user.Email,
 		&user.Phone,
 		&user.PasswordHash,
@@ -238,12 +243,13 @@ func (s *Store) UpsertOAuthUser(ctx context.Context, provider, providerUserID, e
 		}
 
 		insertQuery := `
-			INSERT INTO identity_.users (email, password_hash, email_verified, role)
-			VALUES ($1, '', $2, 'customer')
-			RETURNING id, email, phone, password_hash, email_verified, phone_verified, role, status, created_at, updated_at, deleted_at
+			INSERT INTO identity_.users (full_name, email, password_hash, email_verified, role)
+			VALUES (split_part($1, '@', 1), $1, '', $2, 'customer')
+			RETURNING id, full_name, email, phone, password_hash, email_verified, phone_verified, role, status, created_at, updated_at, deleted_at
 		`
 		if err := tx.QueryRowContext(ctx, insertQuery, email, emailVerified).Scan(
 			&user.ID,
+			&user.FullName,
 			&user.Email,
 			&user.Phone,
 			&user.PasswordHash,
@@ -360,10 +366,11 @@ func (s *Store) UpdateUserProfile(ctx context.Context, id string, phone *string)
 		UPDATE identity_.users
 		SET phone = $2, updated_at = NOW()
 		WHERE id = $1 AND deleted_at IS NULL
-		RETURNING id, email, phone, password_hash, email_verified, phone_verified, role, status, created_at, updated_at, deleted_at
+		RETURNING id, full_name, email, phone, password_hash, email_verified, phone_verified, role, status, created_at, updated_at, deleted_at
 	`
 	if err := s.db.QueryRowContext(ctx, query, id, phone).Scan(
 		&user.ID,
+		&user.FullName,
 		&user.Email,
 		&user.Phone,
 		&user.PasswordHash,

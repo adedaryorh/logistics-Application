@@ -85,3 +85,49 @@ when testing on a physical device.
    constructor through `servicehttp.Options.NewApp`.
 4. Add the service to the `SERVICES` list, Compose configuration, protobuf
    contracts, migrations, and cross-service tests as applicable.
+
+
+
+
+Generate a fresh local key pair:
+cd /Users/adedaryorh/Documents/logistics-Application
+
+mkdir -p .secrets
+
+openssl genpkey \
+  -algorithm RSA \
+  -pkeyopt rsa_keygen_bits:2048 \
+  -out .secrets/jwt-private.pem
+
+openssl pkey \
+  -in .secrets/jwt-private.pem \
+  -pubout \
+  -out .secrets/jwt-public.pem
+
+chmod 600 .secrets/jwt-private.pem
+chmod 644 .secrets/jwt-public.pem
+Confirm the keys match:
+openssl pkey -in .secrets/jwt-private.pem -pubout |
+diff - .secrets/jwt-public.pem
+No output means they match.
+For local terminal execution, load them as environment variables:
+export JWT_PRIVATE_KEY="$(cat .secrets/jwt-private.pem)"
+export JWT_PUBLIC_KEY="$(cat .secrets/jwt-public.pem)"
+
+
+
+
+
+brew install golang-migrate
+MIGRATE_DATABASE_URL='postgres://postgres:postgres@localhost:5432/logistics?sslmode=disable' make migrate-up
+
+
+ Restart backend services after migration
+docker compose restart api-gateway identity-service logistics-service mobility-service payment-service operations-service
+
+Check the API gateway:
+curl http://localhost:8080/healthz
+Check Logistics directly:
+curl http://localhost:8082/readyz
+Inspect a failing service:
+docker compose logs -f logistics-service

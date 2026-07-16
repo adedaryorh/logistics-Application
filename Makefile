@@ -18,6 +18,8 @@ build:
 		$(GO) build -o bin/$$service ./services/$$service/cmd/server; \
 	done
 
+
+
 test:
 	set -e; for dir in pkg/* services/*; do \
 		if [ -f "$$dir/go.mod" ]; then \
@@ -63,12 +65,12 @@ lint:
 
 migrate-up:
 	set -e; for schema in identity logistics mobility payment operations; do \
-		$(MIGRATE) -path infra/migrations/$$schema -database "$${MIGRATE_DATABASE_URL:?set MIGRATE_DATABASE_URL}" up; \
+		$(MIGRATE) -path infra/migrations/$$schema -database "$${MIGRATE_DATABASE_URL:?set MIGRATE_DATABASE_URL}&x-migrations-table=$${schema}_schema_migrations" up; \
 	done
 
 migrate-down:
 	set -e; for schema in operations payment mobility logistics identity; do \
-		$(MIGRATE) -path infra/migrations/$$schema -database "$${MIGRATE_DATABASE_URL:?set MIGRATE_DATABASE_URL}" down 1; \
+		$(MIGRATE) -path infra/migrations/$$schema -database "$${MIGRATE_DATABASE_URL:?set MIGRATE_DATABASE_URL}&x-migrations-table=$${schema}_schema_migrations" down 1; \
 	done
 
 proto:

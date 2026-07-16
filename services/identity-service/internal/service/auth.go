@@ -35,7 +35,7 @@ type AuthService struct {
 type identityStore interface {
 	Ping(ctx context.Context) error
 	GetUserByEmail(ctx context.Context, email string) (*model.User, error)
-	CreateUser(ctx context.Context, email, passwordHash, role string, outboxPayload any) (*model.User, error)
+	CreateUser(ctx context.Context, fullName, email, passwordHash, role string, outboxPayload any) (*model.User, error)
 	GetUserByID(ctx context.Context, id string) (*model.User, error)
 	UpdateUserProfile(ctx context.Context, id string, phone *string) (*model.User, error)
 	SoftDeleteUser(ctx context.Context, id string) error
@@ -94,6 +94,7 @@ type OAuthSessionStart struct {
 }
 
 type RegisterInput struct {
+	FullName string
 	Email    string
 	Password string
 }
@@ -164,6 +165,10 @@ func NewAuthServiceWithProviders(store identityStore, cfg *platformconfig.Config
 }
 
 func (s *AuthService) Register(ctx context.Context, input RegisterInput) (*model.User, error) {
+	fullName := strings.Join(strings.Fields(input.FullName), " ")
+	if len(fullName) < 2 || len(fullName) > 120 {
+		return nil, platformerrors.ErrBadRequest
+	}
 	email := strings.TrimSpace(strings.ToLower(input.Email))
 	if err := validateEmail(email); err != nil {
 		return nil, err
@@ -185,12 +190,19 @@ func (s *AuthService) Register(ctx context.Context, input RegisterInput) (*model
 		return nil, fmt.Errorf("hash password: %w", err)
 	}
 
-	user, err := s.store.CreateUser(ctx, email, string(passwordHash), "customer", map[string]any{
-		"email": email,
-		"role":  "customer",
+	user, err := s.store.CreateUser(ctx, fullName, email, string(passwordHash), "customer", map[string]any{
+		"full_name": fullName,
+		"email":     email,
+		"role":      "customer",
 	})
 	if err != nil {
 		return nil, fmt.Errorf("create identity user: %w", err)
+	}
+	if s.cfg.Security.AutoVerifyEmail {
+		if err := s.store.MarkUserEmailVerified(ctx, user.ID); err != nil {
+			return nil, fmt.Errorf("auto-verify local identity user: %w", err)
+		}
+		user.EmailVerified = true
 	}
 	observability.IncCounter("identity_registrations_total", 1, map[string]string{"role": "customer"})
 

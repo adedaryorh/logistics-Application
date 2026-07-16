@@ -2,6 +2,7 @@ import { Order, Tracking, User } from '../types';
 
 export const demoUser: User = {
   id: 'demo-user',
+  full_name: 'Tobi Adeyemi',
   email: 'tobi@example.com',
   phone: '+234 801 234 5678',
 };

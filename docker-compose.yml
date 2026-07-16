@@ -1,52 +1,18 @@
 x-service-env: &service-env
-  ENV: development
-  VERSION: v1
-  KAFKA_ENABLED: "true"
-  INTERNAL_AUTH_TOKEN: internal-dev-token
-  CORS_ALLOWED_ORIGINS: http://localhost:3000,http://localhost:19006
+  ENV: ${ENV:-development}
+  VERSION: ${VERSION:-v1}
+  KAFKA_ENABLED: ${KAFKA_ENABLED:-true}
+  INTERNAL_AUTH_TOKEN: ${INTERNAL_AUTH_TOKEN:?set INTERNAL_AUTH_TOKEN in .env}
+  CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:3000,http://localhost:19006}
   REDIS_ADDR: redis:6379
   KAFKA_BROKERS: kafka:9092
   KAFKA_SCHEMA_REGISTRY_URL: http://schema-registry:8081
   TEMPORAL_HOST_PORT: temporal:7233
   JAEGER_ENDPOINT: http://jaeger:4318/v1/traces
-  JWT_PRIVATE_KEY: |
-    -----BEGIN RSA PRIVATE KEY-----
-    MIIEpAIBAAKCAQEAwmnZ8dIf1w8kTlBd6vGkTW3e3fP7c+2xV8hG5wUjYkIOrfKn
-    3IrM0+NYkHyJ6lJtP+GXQ2W7X9o0biA4R02B1BGoR8Yi5WZul3fcyirzNYIj1i4e
-    PeuzsBbm0Gh+2c4+v8Bo0CL7fS9d0rIgkbf3K6fAieKJ5e4Jm+8Wm9hP0zC7wP4l
-    gcp2pkxV9rQ4nF1Oba9oW8RH7GXvQwED0Y8p6vV6hR7Vf1+Ww5Pp0DJ8iF8E0mPM
-    4z4xAWjIvmSUuT3+KE8zFfS4gV9KQ7fV8+Qx6/qnA0jUAd8GxKCNJnY8QFgaY9vk
-    i/p3NW1H4l4l6T3zHk8/CGmdh4Se9WRq0qByuQIDAQABAoIBAQCIjE4+Vv8vP6xq
-    8n3lTWgAnT4kNn8r3x5gB7jU9b9i2d7m7jY6oQfo9Q4SOfv4Kq7WRo6YvP7ewz5V
-    q3yb8Y0E8g0vx0x+qW5P9dw9t8vG6b2jvO6D4b7REmBlXADUVl2gG8+0j2TXh4a8
-    2b8E6r0E3m9r6ANlJc+70P8rj5Wg9Q5A8y7lYI54Wl8Y0s5YjQqJQ6nQvV9mP15I
-    yecjW+gY3e5L9C+esjA0U6lfVph2mA3P0E1Y7eY2l4zriT1nIh4iS3H1nN9mU0nY
-    GJ8k5F2M3kU3iWGMn3S+V5+P4s9CjQaK2bfg9fJ+WvVY4lD6ZrVFk1V38hWPEeBK
-    hC+Y8nJBAoGBAPAkE6lIMQx8j0cFzj5m4HNuTBYBTSO56/2QGihju6rjZ7YbgG1O
-    ZDq9LkEFmYg4Wn0pV4pgIo2DswR/ot2Q7G0u2mkD2JlG6HNUx+51yFdvzK6F4GCH
-    BX4v4eV8gU2nH4hS0rWn0pX2dYf3pK5I0b3Kq8bQ2F4iQ8C+u5UhlrRhAoGBAMn1
-    cHwQdSqmN9a0b0wd1jT2G1b4P6Gv0J0c9Hj4+Zhf4JH+8lrq9a3p5mXH7Qz2WgU7
-    UZ8PjlwmDgS0OZ3cQ5qVZk2xTtY3jvJ9nP9u5S1WmV9HPLAPa7a3Q5xI1qvAQF8r
-    A2Zw8wqUwA1HE4k7lqEn2DN0fXKqJq4P5FYAN6HjAoGAKJr/0Vm9rS5Ab4LbohG0
-    X9o7k0RrjN0pB0v8gb6m0tJzS0mSxT+5k6m1zVwQW5M7g9pAVB8eRytFt3YxVGrn
-    zX9F5nM7kQW1x7LGgqO0P8zJ5qz7n9AmnfwEq7kA0cYv7J5L1r0jR6yBqzv4YkWz
-    cN7m7V9L2cgXnV/JJkqAkgECgYEAjQzvXxkgLgIfj1KLTv1ShZL+M8mw7e9suIr9
-    1Yv8u3Stg6g2u2aGx3DkSUvGNcEJ7R5v+dgBNhUtjwwdYBXLuB+9kQx9w5VJkK9a
-    M4YxYv9+7f7kq7tmxKAKk4k6cmxqD7C4I3l1m3UxZgG1iZLxGiY2TSO5dZsTSnJ0
-    8a7kJpECgYEA6vxg6F6+hrIgs2SBVq3SxwP7n3YUmR6vjKyvNH5L2iQk9qyMB0Ar
-    hH5+AxM8VuV2cbV9pIdU6fIK0yA5Y2F1RTnV3Sqfo9N9ME37JY5YtV9s+Jv9vQ8A
-    2YQFZd/sOa7dL3PR6Yr+1GQ6N6zx8FfBv7nNwLJH8xLe6UBaBi4omd0=
-    -----END RSA PRIVATE KEY-----
-  JWT_PUBLIC_KEY: |
-    -----BEGIN PUBLIC KEY-----
-    MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAwmnZ8dIf1w8kTlBd6vGk
-    TW3e3fP7c+2xV8hG5wUjYkIOrfKn3IrM0+NYkHyJ6lJtP+GXQ2W7X9o0biA4R02B
-    1BGoR8Yi5WZul3fcyirzNYIj1i4ePeuzsBbm0Gh+2c4+v8Bo0CL7fS9d0rIgkbf3
-    K6fAieKJ5e4Jm+8Wm9hP0zC7wP4lgcp2pkxV9rQ4nF1Oba9oW8RH7GXvQwED0Y8p
-    6vV6hR7Vf1+Ww5Pp0DJ8iF8E0mPM4z4xAWjIvmSUuT3+KE8zFfS4gV9KQ7fV8+Qx
-    6/qnA0jUAd8GxKCNJnY8QFgaY9vki/p3NW1H4l4l6T3zHk8/CGmdh4Se9WRq0qBy
-    uQIDAQAB
-    -----END PUBLIC KEY-----
+  JWT_PRIVATE_KEY: ${JWT_PRIVATE_KEY:?set JWT_PRIVATE_KEY in .env}
+  JWT_PUBLIC_KEY: ${JWT_PUBLIC_KEY:?set JWT_PUBLIC_KEY in .env}
+  JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:?set JWT_REFRESH_SECRET in .env}
+  AUTO_VERIFY_EMAIL: ${AUTO_VERIFY_EMAIL:-true}
 
 services:
   postgres:
@@ -70,7 +36,7 @@ services:
     image: redis:7
     command: ["redis-server", "--appendonly", "yes"]
     ports:
-      - "6379:6379"
+      - "${REDIS_HOST_PORT:-6380}:6379"
     volumes:
       - redis-data:/data
 
@@ -109,7 +75,7 @@ services:
     depends_on:
       - postgres
     environment:
-      DB: postgresql
+      DB: postgres12
       DB_PORT: 5432
       POSTGRES_USER: postgres
       POSTGRES_PWD: postgres
@@ -196,7 +162,7 @@ services:
       DB_PASSWORD: identity_pass
       DB_NAME: logistics
     ports:
-      - "8081:8081"
+      - "${IDENTITY_HOST_PORT:-8181}:8081"
 
   logistics-service:
     build:

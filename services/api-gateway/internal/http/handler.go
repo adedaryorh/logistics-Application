@@ -113,7 +113,7 @@ func (h *Handler) allowRequest(c *gin.Context, route Route) bool {
 		}
 	}
 
-	remaining, resetAt, allowed := h.checkRateLimit(c.Request.Method+" "+route.Prefix, identifier, limit)
+	remaining, resetAt, allowed := h.checkRateLimit(c.Request.Method+" "+c.Request.URL.Path, identifier, limit)
 	c.Header("X-RateLimit-Limit", intToString(limit.Requests))
 	c.Header("X-RateLimit-Remaining", intToString(remaining))
 	c.Header("X-RateLimit-Reset", intToString(int(resetAt.Unix())))

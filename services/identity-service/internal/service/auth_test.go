@@ -24,7 +24,7 @@ import (
 type mockStore struct {
 	pingFn                       func(ctx context.Context) error
 	getUserByEmailFn             func(ctx context.Context, email string) (*model.User, error)
-	createUserFn                 func(ctx context.Context, email, passwordHash, role string, outboxPayload any) (*model.User, error)
+	createUserFn                 func(ctx context.Context, fullName, email, passwordHash, role string, outboxPayload any) (*model.User, error)
 	getUserByIDFn                func(ctx context.Context, id string) (*model.User, error)
 	updateUserProfileFn          func(ctx context.Context, id string, phone *string) (*model.User, error)
 	softDeleteUserFn             func(ctx context.Context, id string) error
@@ -64,9 +64,9 @@ func (m *mockStore) GetUserByEmail(ctx context.Context, email string) (*model.Us
 	return nil, nil
 }
 
-func (m *mockStore) CreateUser(ctx context.Context, email, passwordHash, role string, outboxPayload any) (*model.User, error) {
+func (m *mockStore) CreateUser(ctx context.Context, fullName, email, passwordHash, role string, outboxPayload any) (*model.User, error) {
 	if m.createUserFn != nil {
-		return m.createUserFn(ctx, email, passwordHash, role, outboxPayload)
+		return m.createUserFn(ctx, fullName, email, passwordHash, role, outboxPayload)
 	}
 	return nil, nil
 }
@@ -242,13 +242,14 @@ func TestRegister_Success(t *testing.T) {
 	var capturedPasswordHash string
 	var capturedPayload map[string]any
 
-	store.createUserFn = func(ctx context.Context, email, passwordHash, role string, outboxPayload any) (*model.User, error) {
+	store.createUserFn = func(ctx context.Context, fullName, email, passwordHash, role string, outboxPayload any) (*model.User, error) {
 		capturedEmail = email
 		capturedRole = role
 		capturedPasswordHash = passwordHash
 		capturedPayload = outboxPayload.(map[string]any)
 		return &model.User{
 			ID:            "user-1",
+			FullName:      fullName,
 			Email:         email,
 			Role:          role,
 			EmailVerified: false,
@@ -257,6 +258,7 @@ func TestRegister_Success(t *testing.T) {
 	}
 
 	user, err := service.Register(context.Background(), RegisterInput{
+		FullName: "Test Driver",
 		Email:    "Test@Example.com",
 		Password: "Password1",
 	})
@@ -291,11 +293,37 @@ func TestRegister_DuplicateEmail(t *testing.T) {
 	service := NewAuthService(store, cfg)
 
 	_, err := service.Register(context.Background(), RegisterInput{
+		FullName: "Test Driver",
 		Email:    "test@example.com",
 		Password: "Password1",
 	})
 	if !errors.Is(err, platformerrors.ErrConflict) {
 		t.Fatalf("expected conflict error, got %v", err)
+	}
+}
+
+func TestRegister_AutoVerifiesEmailWhenEnabled(t *testing.T) {
+	cfg := testConfig()
+	cfg.Security.AutoVerifyEmail = true
+	verifiedUserID := ""
+	store := &mockStore{
+		createUserFn: func(ctx context.Context, fullName, email, passwordHash, role string, outboxPayload any) (*model.User, error) {
+			return &model.User{ID: "user-1", FullName: fullName, Email: email, Role: role, Status: "active"}, nil
+		},
+		markUserEmailVerifiedFn: func(ctx context.Context, userID string) error {
+			verifiedUserID = userID
+			return nil
+		},
+	}
+
+	user, err := NewAuthService(store, cfg).Register(context.Background(), RegisterInput{
+		FullName: "Test Driver", Email: "driver@example.com", Password: "Password1",
+	})
+	if err != nil {
+		t.Fatalf("Register() error = %v", err)
+	}
+	if verifiedUserID != user.ID || !user.EmailVerified {
+		t.Fatalf("expected auto-verified user, got id=%q verified=%v", verifiedUserID, user.EmailVerified)
 	}
 }
 

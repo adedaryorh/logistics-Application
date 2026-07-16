@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/golang-jwt/jwt/v4"
@@ -140,12 +141,12 @@ func VerifyRefreshTokenWithSecret(token, secret, hash string) bool {
 }
 
 func managerFromEnv() (*JWTManager, error) {
-	privateKey := os.Getenv("JWT_PRIVATE_KEY")
+	privateKey := normalizePEM(os.Getenv("JWT_PRIVATE_KEY"))
 	if privateKey == "" {
 		return nil, fmt.Errorf("JWT_PRIVATE_KEY is required")
 	}
 
-	publicKey := os.Getenv("JWT_PUBLIC_KEY")
+	publicKey := normalizePEM(os.Getenv("JWT_PUBLIC_KEY"))
 	if publicKey == "" {
 		return nil, fmt.Errorf("JWT_PUBLIC_KEY is required")
 	}
@@ -156,6 +157,16 @@ func managerFromEnv() (*JWTManager, error) {
 	}
 
 	return manager, nil
+}
+
+// normalizePEM removes indentation commonly introduced by multiline .env and
+// YAML values. PEM base64 lines cannot contain those leading spaces.
+func normalizePEM(value string) string {
+	lines := strings.Split(strings.TrimSpace(value), "\n")
+	for i := range lines {
+		lines[i] = strings.TrimSpace(lines[i])
+	}
+	return strings.Join(lines, "\n") + "\n"
 }
 
 func GenerateAccessToken(userID, role string, scopes []string) (string, error) {

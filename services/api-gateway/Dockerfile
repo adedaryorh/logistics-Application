@@ -1,8 +1,9 @@
-FROM golang:1.22-alpine AS builder
+FROM golang:1.25.6-alpine AS builder
 WORKDIR /app
 COPY go.work go.work.sum ./
 COPY pkg/ pkg/
 COPY services/ services/
+COPY tests/go.mod tests/go.mod
 RUN go build -o /bin/server ./services/api-gateway/cmd/server
 
 FROM gcr.io/distroless/static-debian12
